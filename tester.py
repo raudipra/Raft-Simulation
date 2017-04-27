@@ -11,9 +11,13 @@ import json
 # params = urllib.urlencode({'spam': 1, 'eggs': 2, 'bacon': 0})
 conn = httplib.HTTPConnection("localhost:13337")
 data = {
-    "address": "localhost",
-    "port": "12345",
-    "cpu_load": "1000" 
+    "address1": "localhost",
+    "port1": "12345",
+    "cpu_load1": "1000",
+    "address2": "localhost",
+    "port2": "32123",
+    "cpu_load2": "500",
+    "term": "2"
 }
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 conn.request("GET", "/",json.dumps(data),headers)

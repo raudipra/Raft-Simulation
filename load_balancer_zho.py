@@ -31,25 +31,45 @@ def loadFile(filename):
         if not line:
             break
         #Line 1 : Index
-        if (n % 7 == 0):
+        if (n % 12 == 0):
             log = []
             words = line.split(" ")
             log.append(words[0])
-        #Line 2 & 6 & 7: ignore
-        elif (n % 7 == 1 or n % 7 == 5 or n % 7 == 6):
+        #Line 2 & 10 & 11: ignore
+        elif (n % 11 == 1 or n % 11 == 9 or n % 11 == 10):
             a = 1
         #Line 3: Address
-        elif (n % 7 == 2):
+        elif (n % 11 == 2):
             words = line.split(" ")
             log.append(words[1])
         #Line 4: Port
-        elif (n % 7 == 3):
+        elif (n % 11 == 3):
             words = line.split(" ")
             log.append(words[1])
         #Line 5: CPU Load
-        elif (n % 7 == 4):
+        elif (n % 11 == 4):
             words = line.split(" ")
             log.append(words[2])
+            # Push to array_log
+            array_log.append(log)
+        #Line 6: Address
+        elif (n % 11 == 5):
+            words = line.split(" ")
+            log.append(words[1])
+        #Line 7: Port
+        elif (n % 11 == 6):
+            words = line.split(" ")
+            log.append(words[1])
+        #Line 8: CPU Load
+        elif (n % 11 == 7):
+            words = line.split(" ")
+            log.append(words[2])
+            # Push to array_log
+            array_log.append(log)
+        #Line 9: Term
+        elif (n % 11 == 8):
+            words = line.split(" ")
+            log.append(words[1])
             # Push to array_log
             array_log.append(log)
         n+=1    
@@ -70,14 +90,22 @@ class WorkerHandler(BaseHTTPRequestHandler):
             content_len = int(self.headers.getheader('content-length', 0))
             post_body = self.rfile.read(content_len)
             json_obj = json.loads(post_body)
-            address = json_obj["address"]
-            port = json_obj["port"]
-            cpu_load = json_obj["cpu_load"]
+            address1 = json_obj["address1"]
+            port1 = json_obj["port1"]
+            cpu_load1 = json_obj["cpu_load1"]
+            address2 = json_obj["address2"]
+            port2 = json_obj["port2"]
+            cpu_load2 = json_obj["cpu_load2"]
+            term = json_obj["term"]
 
             single_data_text = str(logcount)+" ____________________________________\n\n"
-            single_data_text += "Address: "+address+" \n"
-            single_data_text += "Port: "+ port+" \n"
-            single_data_text += "CPU Load: "+ cpu_load+" \n"
+            single_data_text += "Address1: "+address1+" \n"
+            single_data_text += "Port1: "+ port1+" \n"
+            single_data_text += "CPU Load1: "+ cpu_load1+" \n"
+            single_data_text += "Address2: "+address2+" \n"
+            single_data_text += "Port2: "+ port2+" \n"
+            single_data_text += "CPU Load2: "+ cpu_load2+" \n"
+            single_data_text += "Term: "+ term+" \n"
             single_data_text += "\n______________________________________\n"
             print single_data_text
             writeToFile("test.txt",single_data_text)
@@ -97,6 +125,7 @@ myarray = loadFile("test.txt")
 for log in myarray:
     for x in log:
         print x
+    print "______"
 
 
 signal.signal(signal.SIGALRM, handler)
