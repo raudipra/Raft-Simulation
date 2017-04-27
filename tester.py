@@ -20,6 +20,6 @@ data = {
     "term": "2"
 }
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-conn.request("GET", "/",json.dumps(data),headers)
+conn.request("GET", "/just/another/authentication/",json.dumps(data),headers)
 r1 = conn.getresponse()
 print r1.status, r1.reason

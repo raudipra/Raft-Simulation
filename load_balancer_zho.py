@@ -5,21 +5,21 @@ import sys
 import time
 import signal
 import json
+import threading
 
 #!/usr/bin/env python
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
-PORT = 13337
-sumVote = 0
-leader = 0
-isVoted = 1
+
+# sumVote = 0
 
 
-def handler(signum, frame):
-    print "Forever is over!"
-    if (sumVote>0):
-        leader = 1
+
+# def handler(signum, frame):
+#     print "Forever is over!"
+#     if (sumVote>0):
+#         leader = 1
     
 def loadFile(filename):
     F = open(filename,"r")
@@ -82,54 +82,100 @@ def writeToFile(filename,addedtext):
     F.close
 
 class WorkerHandler(BaseHTTPRequestHandler):
+    # For Client Handling
+    def do_POST(self):
+        print "POST request"
+
+    # For Each Node Communication
     def do_GET(self):
         global logcount
         global isVoted
+        global getrequest
         try:
             args = self.path.split('/')
-            content_len = int(self.headers.getheader('content-length', 0))
-            post_body = self.rfile.read(content_len)
-            json_obj = json.loads(post_body)
-            address1 = json_obj["address1"]
-            port1 = json_obj["port1"]
-            cpu_load1 = json_obj["cpu_load1"]
-            address2 = json_obj["address2"]
-            port2 = json_obj["port2"]
-            cpu_load2 = json_obj["cpu_load2"]
-            term = json_obj["term"]
+            # Just To Make Sure, There's no way for access it directly
+            # Should make it better way, fix it later rau.
+            if len(args) > 2:
+                getrequest = True
+                content_len = int(self.headers.getheader('content-length', 0))
+                post_body = self.rfile.read(content_len)
+                json_obj = json.loads(post_body)
+                address1 = json_obj["address1"]
+                port1 = json_obj["port1"]
+                cpu_load1 = json_obj["cpu_load1"]
+                address2 = json_obj["address2"]
+                port2 = json_obj["port2"]
+                cpu_load2 = json_obj["cpu_load2"]
+                term = json_obj["term"]
 
-            single_data_text = str(logcount)+" ____________________________________\n\n"
-            single_data_text += "Address1: "+address1+" \n"
-            single_data_text += "Port1: "+ port1+" \n"
-            single_data_text += "CPU Load1: "+ cpu_load1+" \n"
-            single_data_text += "Address2: "+address2+" \n"
-            single_data_text += "Port2: "+ port2+" \n"
-            single_data_text += "CPU Load2: "+ cpu_load2+" \n"
-            single_data_text += "Term: "+ term+" \n"
-            single_data_text += "\n______________________________________\n"
-            print single_data_text
-            writeToFile("test.txt",single_data_text)
-            self.send_response(200)
-            self.end_headers() 
-            logcount+=1
+                single_data_text = str(logcount)+" ____________________________________\n\n"
+                single_data_text += "Address1: "+address1+" \n"
+                single_data_text += "Port1: "+ port1+" \n"
+                single_data_text += "CPU Load1: "+ cpu_load1+" \n"
+                single_data_text += "Address2: "+address2+" \n"
+                single_data_text += "Port2: "+ port2+" \n"
+                single_data_text += "CPU Load2: "+ cpu_load2+" \n"
+                single_data_text += "Term: "+ term+" \n"
+                single_data_text += "\n______________________________________\n"
+                print single_data_text
+                writeToFile("test.txt",single_data_text)
+                self.send_response(200)
+                self.end_headers() 
+                logcount+=1
             
         except Exception as ex:
             self.send_response(500)
             self.end_headers()
             print(ex)
 
-# loadfile("test.txt")
 
+# myarray = loadFile("test.txt")
+# for log in myarray:
+#     for x in log:
+#         print x
+#     print "______"
+
+
+# INITIALIZERS
+# How to RUN!!
+# python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL
+if len(sys.argv) < 4:
+    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL"
+    sys.exit(1)
+
+leader = 0
+isVoted = 1
 logcount = 0
-myarray = loadFile("test.txt")
-for log in myarray:
-    for x in log:
-        print x
-    print "______"
+getrequest = False
+nodenumber = int(sys.argv[1])
+# PORT = 13337
+PORT = int(sys.argv[2])
+timeout_interval = int(sys.argv[3])
 
+def NodeProcess():
+    print "Node ",nodenumber," starting"
+    global getrequest
+    while (1):
+        now = time.time()
+        future = now + timeout_interval
+        isTimeOut = True
+        while time.time() < future:
+            if (getrequest):
+                isTimeOut = False
+                getrequest = False
+                break
+                
+        if (isTimeOut):
+            print "Timeout"
+        else:
+            print "broken"
+        
 
-signal.signal(signal.SIGALRM, handler)
-signal.alarm(10)
+# signal.signal(signal.SIGALRM, handler)
+# signal.alarm(10)
 server = HTTPServer(("", PORT), WorkerHandler)
+th = threading.Thread(target=NodeProcess)
+th.daemon = True
+th.start()
 server.serve_forever()
 
