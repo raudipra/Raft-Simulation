@@ -20,7 +20,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 #     print "Forever is over!"
 #     if (sumVote>0):
 #         leader = 1
-    
+
 def loadFile(filename):
     F = open(filename,"r")
     n = 0
@@ -72,7 +72,7 @@ def loadFile(filename):
             log.append(words[1])
             # Push to array_log
             array_log.append(log)
-        n+=1    
+        n+=1
     F.close
     return array_log
 
@@ -123,9 +123,9 @@ class WorkerHandler(BaseHTTPRequestHandler):
 
                 # INI UNTUK SAVE KE FILE EXTERNAL
                 writeToFile("test.txt",single_data_text)
-                
+
                 self.send_response(200)
-                self.end_headers() 
+                self.end_headers()
                 logcount+=1
             # Means it's sent by daemon (maybe another better representation??)
             elif len(args) == 4:
@@ -147,8 +147,8 @@ class WorkerHandler(BaseHTTPRequestHandler):
 
 
                 self.send_response(200)
-                self.end_headers() 
-            
+                self.end_headers()
+
         except Exception as ex:
             self.send_response(500)
             self.end_headers()
@@ -192,12 +192,12 @@ def NodeProcess():
                 isTimeOut = False
                 getrequest = False
                 break
-                
+
         if (isTimeOut):
             print "Timeout, do something... become candidate?"
         else:
             print "\nGet Request, Do Something....\n"
-        
+
 
 # signal.signal(signal.SIGALRM, handler)
 # signal.alarm(10)
@@ -206,4 +206,3 @@ th = threading.Thread(target=NodeProcess)
 th.daemon = True
 th.start()
 server.serve_forever()
-

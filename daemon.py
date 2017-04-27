@@ -13,18 +13,17 @@ if len(sys.argv) < 2:
 	sys.exit(1)
 
 machine_idx = sys.argv[1]
-p = psutil.Process(os.getpid())
+p = psutil.virtual_memory()
+freeMemory = p.free
 
 while 1 :
-	cpu_load = p.cpu_percent(interval=1)
-	print "CPU LOAD",cpu_load
 	for port in registered_ports:
 		address = "localhost:"+str(port)
 		print "Sending machine detail to ",address
 		conn = httplib.HTTPConnection(address)
 		data = {
 		    "machine_idx": machine_idx,
-		    "cpu_load" : cpu_load
+		    "cpu_load" : freeMemory
 		}
 		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 		conn.request("GET", "/from/daemon/",json.dumps(data),headers)
