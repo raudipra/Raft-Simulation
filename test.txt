@@ -1,0 +1,22 @@
+0 ____________________________________
+
+Address1: localhost 
+Port1: 12345 
+CPU Load1: 1000 
+Address2: localhost 
+Port2: 32123 
+CPU Load2: 500 
+Term: 2 
+
+______________________________________
+1 ____________________________________
+
+Address1: localhost 
+Port1: 12345 
+CPU Load1: 1000 
+Address2: localhost 
+Port2: 32123 
+CPU Load2: 500 
+Term: 2 
+
+______________________________________

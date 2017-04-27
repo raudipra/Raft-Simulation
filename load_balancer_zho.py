@@ -95,7 +95,8 @@ class WorkerHandler(BaseHTTPRequestHandler):
             args = self.path.split('/')
             # Just To Make Sure, There's no way for access it directly
             # Should make it better way, fix it later rau.
-            if len(args) > 2:
+            # Means it's sent by other nodes (maybe another better representation??)
+            if len(args) == 5:
                 getrequest = True
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -122,6 +123,27 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers() 
                 logcount+=1
+            # Means it's sent by daemon (maybe another better representation??)
+            elif len(args) == 4:
+                print "This is from daemon"
+                content_len = int(self.headers.getheader('content-length', 0))
+                post_body = self.rfile.read(content_len)
+                json_obj = json.loads(post_body)
+
+                machine_idx = json_obj["machine_idx"]
+                cpu_load = json_obj["cpu_load"]
+
+                print "Machine Idx: ",machine_idx
+                print "CPU_LOAD: ",cpu_load,"\n"
+
+                # Abis dapet data dari daemon diapain??
+                # Nunggu semua machine ngabarin apa gmn?
+                # Lanjutin rau, wieg
+                # WKWKWKWKWK
+
+
+                self.send_response(200)
+                self.end_headers() 
             
         except Exception as ex:
             self.send_response(500)
