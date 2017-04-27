@@ -119,7 +119,10 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 single_data_text += "Term: "+ term+" \n"
                 single_data_text += "\n______________________________________\n"
                 print single_data_text
+
+                # INI UNTUK SAVE KE FILE EXTERNAL
                 writeToFile("test.txt",single_data_text)
+                
                 self.send_response(200)
                 self.end_headers() 
                 logcount+=1
@@ -151,6 +154,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
             print(ex)
 
 
+# Ini Buat baca file, baca paramnya sesuai urutan aja
 # myarray = loadFile("test.txt")
 # for log in myarray:
 #     for x in log:
@@ -178,6 +182,7 @@ def NodeProcess():
     print "Node ",nodenumber," starting"
     global getrequest
     while (1):
+        # if isLeader:
         now = time.time()
         future = now + timeout_interval
         isTimeOut = True
@@ -188,9 +193,9 @@ def NodeProcess():
                 break
                 
         if (isTimeOut):
-            print "Timeout"
+            print "Timeout, do something... become candidate?"
         else:
-            print "broken"
+            print "\nGet Request, Do Something....\n"
         
 
 # signal.signal(signal.SIGALRM, handler)
