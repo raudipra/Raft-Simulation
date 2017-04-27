@@ -77,6 +77,7 @@ def loadFile(filename):
     return array_log
 
 def writeToFile(filename,addedtext):
+    # Kalo mau nimpa semua, tinggal ganti a jadi r
     F = open(filename,"a")
     F.write(addedtext)
     F.close
