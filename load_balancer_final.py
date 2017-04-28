@@ -70,14 +70,14 @@ def loadFile(filename):
         return []
 
 def addToFile(filename,addedtext):
-    # Kalo mau nimpa semua, tinggal ganti a jadi r
+    # Kalo mau nimpa semua, tinggal ganti a jadi w
     F = open(filename,"a")
     F.write(addedtext)
     F.close
 
 def writeToFile(filename,addedtext):
-    # Kalo mau nimpa semua, tinggal ganti a jadi r
-    F = open(filename,"r")
+    # Kalo mau nimpa semua, tinggal ganti a jadi w
+    F = open(filename,"w")
     F.write(addedtext)
     F.close
 
@@ -88,7 +88,7 @@ def moveTempToActualLogs(src,dst):
         line = S.readline()
         if not line:
             break
-        log = line,"\n"
+        log = line
         addToFile(dst,log)
     S.close
     # Empty the temporary logs file
@@ -110,10 +110,11 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
-                logs = int(json_obj["commit"])
+                commit = int(json_obj["commit"])
                 if (commit == 1):
-                    moveTempToActualLogs("tempLog"+str(nodenumber)+".txt","commitedLog"+str(nodenumber)+".txt")
-                commitIndex = int(getLastLogIndex("commitedLog"+str(nodenumber)+".txt"))
+                    print "Commit!!!"
+                    moveTempToActualLogs("logTemp"+str(nodenumber)+".txt","commitedLog"+str(nodenumber)+".txt")
+                # commitIndex = int(getLastLogIndex("commitedLog"+str(nodenumber)+".txt"))
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -122,11 +123,31 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
-                logs = json_obj["logs"]
-                # INI UNTUK SAVE KE FILE EXTERNAL
+                # logs = json_obj["logs"]
+                if not json_obj:
+                    address1 = json_obj["address1"]
+                    port1 = json_obj["port1"]
+                    cpu_load1 = json_obj["cpu_load1"]
+                    address2 = json_obj["address2"]
+                    port2 = json_obj["port2"]
+                    cpu_load2 = json_obj["cpu_load2"]
+                    term = json_obj["term"]
 
-                addToFile("logTemp"+str(nodenumber)+".txt",logs)
-                self.wfile.write("/"+logs+"/")
+                    single_data_text = str(logcount)+" ____________________________________\n\n"
+                    single_data_text += "Address1: "+address1+" \n"
+                    single_data_text += "Port1: "+ port1+" \n"
+                    single_data_text += "CPU Load1: "+ cpu_load1+" \n"
+                    single_data_text += "Address2: "+address2+" \n"
+                    single_data_text += "Port2: "+ port2+" \n"
+                    single_data_text += "CPU Load2: "+ cpu_load2+" \n"
+                    single_data_text += "Term: "+ term+" \n"
+                    single_data_text += "\n______________________________________\n"
+                    print single_data_text
+
+                    # INI UNTUK SAVE KE FILE EXTERNAL
+                    addToFile("logTemp"+str(nodenumber)+".txt",logs)
+
+                self.wfile.write("/"+post_body+"/")
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -138,7 +159,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 expectedTerm = int(json_obj["term"])
                 expectedIndex = int(json_obj["index"])
                 logarray = loadFile("commitedLog"+str(nodenumber)+".txt")
-                if (getTermFromIndex(logarray,expectedIndex) == expectedTerm):
+                if (int(getTermFromIndex(logarray,expectedIndex)) == expectedTerm):
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/ok/")
                 else:
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/no/")
@@ -155,14 +176,14 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 log_array = loadFile("commitedLog"+str(nodenumber)+".txt")
                 realNextIndex = int(getLastLogIndex(log_array))+1
-                self.wfile.write(("/"+expectedNextIndex+"/"+str(realNextIndex)+"/"))
+                self.wfile.write(("/"+str(expectedNextIndex)+"/"+str(realNextIndex)+"/"))
 
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
             # Got election request
             elif len(args) == 3:
-                global term
+
                 print "This is election request for vote"
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 content_len = int(self.headers.getheader('content-length', 0))
@@ -279,10 +300,16 @@ def timeOut(signum, frame):
 # > log_array = loadFile(filename)
 
 def getLog(log_array,index):
-    return log_array[index]
+    if (not log_array):
+        return ""
+    else:
+        return log_array[index]
 
 def getTermFromIndex(log_array,index):
-    return log_array[index][7]
+    if (not log_array):
+        return "0"
+    else:
+        return log_array[index][7]
 
 def getLastLogIndex(log_array):
     if (not log_array):
@@ -327,27 +354,44 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                 data = {
                     "index": allNextIndex[childNodeNumber]
                 }
+                print "....alnextkecil ",allNextIndex[childNodeNumber]
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
                 conn.request("GET", "/samain/next/index",json.dumps(data),headers)
                 r1 = conn.getresponse()
-                print r1.status, r1.reason
-                if (r1.status != "200"):
+                print r1.status#, r1.reason
+                if (int(r1.status) != 200):
+                    print "Sini gan!!"
                     allPhase[childNodeNumber] = 0
                     steady = True
                 else:
+                    print "Bukan Sini gan!!"
                     steady = False
                     data = r1.read()
                     readData = data.split('/') # Expected value -> next index/index result
                     # Check if no corrupted value
+                    print "ALL NEXT => ",allNextIndex[childNodeNumber]
+                    i = 0
+                    for m in readData:
+                        print i," : ",m
+                        i+=1
+                    print "..."
                     if (allNextIndex[childNodeNumber] == int(readData[1])):
-                        if (allNextIndex[childNodeNumber] == int(readData[1])):
-                            allPhase[childNodeNumber] = 1
-                            allMatchIndex[childNodeNumber] = readData[1]-1 # Temporaly
+                        print "bukan bebas....."
+                        if (allNextIndex[childNodeNumber] == int(readData[2])):
+                            print "bebas....."
+                            allMatchIndex[childNodeNumber] = int(readData[2])-1 # Temporaly
+                            print "DEBUG BANG UDI",allMatchIndex[childNodeNumber],currentIndex
+                            if (allMatchIndex[childNodeNumber] == currentIndex):
+                                allPhase[childNodeNumber] = 3
+                                steady = True
+                                print "Masuk 3"
+                            else:
+                                allPhase[childNodeNumber] = 1
                         else:
                             allNextIndex[childNodeNumber] -= 1
                 conn.close()
-            elif (allPhase == 1):
-                term = getTermFromIndex(loadFile("commitedLog.txt"),allMatchIndex[childNodeNumber]) # TBD from logs based on allMatchIndex
+            elif (allPhase[childNodeNumber] == 1):
+                term = getTermFromIndex(loadFile("commitedLog"+str(nodenumber)+".txt"),allMatchIndex[childNodeNumber]) # TBD from logs based on allMatchIndex
                 print "Sending term and index to ",nodes[childNodeNumber]
                 conn = httplib.HTTPConnection(nodes[childNodeNumber])
                 data = {
@@ -358,7 +402,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                 conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
                 r1 = conn.getresponse()
                 print r1.status, r1.reason
-                if (r1.status != "200"):
+                if (int(r1.status) != 200):
                     allPhase[childNodeNumber] = 0
                     steady = True
                 else:
@@ -376,22 +420,22 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
             # Match index found -> Sending logs
             elif (allPhase[childNodeNumber] == 2):
                 print "Sending necessary logs to ",nodes[childNodeNumber]
-                log = "log"  # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
+                log_array = loadFile("commitedLog"+str(nodenumber)+".txt")
+                log = getLog(log_array,allMatchIndex[childNodeNumber]+1) # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
                 conn = httplib.HTTPConnection(nodes[childNodeNumber])
-                data = {
-                    "logs": log
-                }
+                data = getJsonFromLog(log)
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
+                conn.request("GET", "/ngasih/match/index/term/log",data,headers)
                 r1 = conn.getresponse()
                 print r1.status, r1.reason
-                if (r1.status != "200"):
+                if (int(r1.status) != 200):
                     allPhase[childNodeNumber] = 0
                     steady = True
                 else:
                     steady = False
                     data = r1.read()
-                    if (data == log):
+                    readData = data.split('/') # Expected value -> term/match index/ok||no
+                    if (readData[1] == log):
                         allNextIndex[childNodeNumber] += 1
                         allMatchIndex[childNodeNumber] += 1
                     if (allMatchIndex[childNodeNumber] == currentIndex):
@@ -407,7 +451,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     if (i != nodenumber) and (allPhase[i] == 3):
                         sumCommit += 1
                 if (sumCommit >= 3):
-                    commitIndex = allMatchIndex[childNodeNumber]
+                    # commitIndex = allMatchIndex[childNodeNumber]
                     data = {
                         "commit": 1
                     }
@@ -416,15 +460,17 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                         "commit": 0
                     }
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                conn.request("GET", "/index/term/log/check",json.dumps(data),headers)
+                conn.request("GET", "/index/term/log/check/bang/neng",json.dumps(data),headers)
                 r1 = conn.getresponse()
                 print r1.status, r1.reason
-                if (r1.status != "200"):
+                if (int(r1.status) != 200):
                     allPhase[childNodeNumber] = 0
                 if (allMatchIndex[childNodeNumber] != currentIndex):
                     allPhase[childNodeNumber] = 0
                     steady = False
                 conn.close()
+            else:
+                print "Nah lho...",allPhase[childNodeNumber]
 
 # INITIALIZERS
 # How to RUN!!
@@ -437,6 +483,7 @@ leader = False
 nodenumber = int(sys.argv[1])
 sumVote = 0
 term = 0
+commit = 0
 allMatchIndex = []
 allNextIndex = []
 allPhase = []
