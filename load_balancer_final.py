@@ -12,59 +12,62 @@ from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
 def loadFile(filename):
-    F = open(filename,"r")
-    n = 0
-    array_log = []
-    log = []
-    while 1:
-        line = F.readline()
-        if not line:
-            break
-        #Line 1 : Index
-        if (n % 11 == 0):
-            log = []
-            words = line.split(" ")
-            log.append(words[0])
-        #Line 2 & 10 & 11: ignore
-        elif (n % 11 == 1 or n % 11 == 9 or n % 11 == 10):
-            a = 1
-        #Line 3: Address
-        elif (n % 11 == 2):
-            words = line.split(" ")
-            log.append(words[1])
-        #Line 4: Port
-        elif (n % 11 == 3):
-            words = line.split(" ")
-            log.append(words[1])
-        #Line 5: CPU Load
-        elif (n % 11 == 4):
-            words = line.split(" ")
-            log.append(words[2])
-            # Push to array_log
-            array_log.append(log)
-        #Line 6: Address
-        elif (n % 11 == 5):
-            words = line.split(" ")
-            log.append(words[1])
-        #Line 7: Port
-        elif (n % 11 == 6):
-            words = line.split(" ")
-            log.append(words[1])
-        #Line 8: CPU Load
-        elif (n % 11 == 7):
-            words = line.split(" ")
-            log.append(words[2])
-            # Push to array_log
-            array_log.append(log)
-        #Line 9: Term
-        elif (n % 11 == 8):
-            words = line.split(" ")
-            log.append(words[1])
-            # Push to array_log
-            array_log.append(log)
-        n+=1
-    F.close
-    return array_log
+    try:
+        F = open(filename,"r")
+        n = 0
+        array_log = []
+        log = []
+        while 1:
+            line = F.readline()
+            if not line:
+                break
+            #Line 1 : Index
+            if (n % 11 == 0):
+                log = []
+                words = line.split(" ")
+                log.append(words[0])
+            #Line 2 & 10 & 11: ignore
+            elif (n % 11 == 1 or n % 11 == 9 or n % 11 == 10):
+                a = 1
+            #Line 3: Address
+            elif (n % 11 == 2):
+                words = line.split(" ")
+                log.append(words[1])
+            #Line 4: Port
+            elif (n % 11 == 3):
+                words = line.split(" ")
+                log.append(words[1])
+            #Line 5: CPU Load
+            elif (n % 11 == 4):
+                words = line.split(" ")
+                log.append(words[2])
+                # Push to array_log
+                array_log.append(log)
+            #Line 6: Address
+            elif (n % 11 == 5):
+                words = line.split(" ")
+                log.append(words[1])
+            #Line 7: Port
+            elif (n % 11 == 6):
+                words = line.split(" ")
+                log.append(words[1])
+            #Line 8: CPU Load
+            elif (n % 11 == 7):
+                words = line.split(" ")
+                log.append(words[2])
+                # Push to array_log
+                array_log.append(log)
+            #Line 9: Term
+            elif (n % 11 == 8):
+                words = line.split(" ")
+                log.append(words[1])
+                # Push to array_log
+                array_log.append(log)
+            n+=1
+        F.close
+        return array_log
+    except IOError as e:
+        return []
 
 def addToFile(filename,addedtext):
     # Kalo mau nimpa semua, tinggal ganti a jadi r
@@ -109,8 +112,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 json_obj = json.loads(post_body)
                 logs = int(json_obj["commit"])
                 if (commit == 1):
-                    moveTempToActualLogs("tempLog.txt","commitedLog.txt")
-                commitIndex = getLastLogIndex
+                    moveTempToActualLogs("tempLog"+str(nodenumber)+".txt","commitedLog"+str(nodenumber)+".txt")
+                commitIndex = int(getLastLogIndex("commitedLog"+str(nodenumber)+".txt"))
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -121,8 +124,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 json_obj = json.loads(post_body)
                 logs = json_obj["logs"]
                 # INI UNTUK SAVE KE FILE EXTERNAL
-                addToFile("logTemp.txt",logs)
-                self.wfile.write(logs.encode('utf-8'))
+                addToFile("logTemp"+str(nodenumber)+".txt",logs)
+                self.wfile.write(logs)
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -133,11 +136,11 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 json_obj = json.loads(post_body)
                 expectedTerm = int(json_obj["term"])
                 expectedIndex = int(json_obj["index"])
-                logarray = loadFile("commitedLog.txt")
+                logarray = loadFile("commitedLog"+str(nodenumber)+".txt")
                 if (getTermFromIndex(logarray,expectedIndex) == expectedTerm):
-                    self.wfile.write(expectedTerm,"/",expectedIndex,"/ok".encode('utf-8'))
+                    self.wfile.write(expectedTerm,"/",expectedIndex,"/ok")
                 else:
-                    self.wfile.write(expectedTerm,"/",expectedIndex,"no".encode('utf-8'))
+                    self.wfile.write(expectedTerm,"/",expectedIndex,"no")
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -147,9 +150,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
                 expectedNextIndex = int(json_obj["index"])
-                log_array = loadFile("commitedLog.txt")
-                realNextIndex = getLastLogIndex(log_array)+1
-                self.wfile.write((expectedNextIndex,"/",realNextIndex).encode('utf-8'))
+                log_array = loadFile("commitedLog"+str(nodenumber)+".txt")
+                realNextIndex = int(getLastLogIndex(log_array))+1
+                self.wfile.write((expectedNextIndex,"/",realNextIndex))
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -157,7 +160,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
             elif len(args) == 3:
                 global term
                 print "This is election request for vote"
-                currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
+                currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
@@ -206,10 +209,10 @@ class LoadBalancer(BaseHTTPRequestHandler):
                             conn.close()
                     termLog = "term: ",term,"\n\n______________________________________"
                     fullLog = indexLog,dataLog,termLog
-                    addToFile("logTemp.txt",fullLog)
+                    addToFile("logTemp"+str(nodenumber)+".txt",fullLog)
 
                     # Send free address to Client
-                    self.wfile.write(choosenWorkers.encode('utf-8'))
+                    self.wfile.write(choosenWorkers)
                     self.send_response(200)
                     self.end_headers()
 
@@ -235,7 +238,7 @@ def timeOut(signum, frame):
         leader = True
         sumVote = 0
         allMatchIndex = [0,0,0,0,0]
-        nextIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) + 1
+        nextIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) + 1
         allNextIndex = [nextIndex,nextIndex,nextIndex,nextIndex,nextIndex]
         allPhase = [0,0,0,0,0]
     else:
@@ -244,7 +247,7 @@ def timeOut(signum, frame):
         signal.alarm(timeout_interval)
         for x in range(0,len(nodes)):
             if (x != nodenumber):
-                currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
+                currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 print "Sending request to ",nodes[x]
                 conn = httplib.HTTPConnection(nodes[x])
                 data = {
@@ -278,7 +281,10 @@ def getTermFromIndex(log_array,index):
     return log_array[index][7]
 
 def getLastLogIndex(log_array):
-    return log_array[len(log_array)-1][0]
+    if (not log_array):
+        return "-1"
+    else:
+        return log_array[len(log_array)-1][0]
 
 # Reminder
 # log = log_array[index]
@@ -304,7 +310,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
     global allPhase
     steady = False
     while (1):
-        currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
+        currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
         if (leader):
             print "I am leader \n"
             # Getting index and term of child nodes
