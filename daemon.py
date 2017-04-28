@@ -4,7 +4,7 @@ import psutil,os
 import sys
 import time
 
-class WorkerHandler(BaseHTTPRequestHandler):
+class Daemon(BaseHTTPRequestHandler):
     # For Client Handling
     def do_POST(self):
         print "POST request"

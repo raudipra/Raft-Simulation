@@ -91,7 +91,7 @@ def moveTempToActualLogs(src,dst):
     # Empty the temporary logs file
     writeToFile(src,"")
 
-class WorkerHandler(BaseHTTPRequestHandler):
+class LoadBalancer(BaseHTTPRequestHandler):
     # For Client Handling
     def do_POST(self):
         print "POST request"
@@ -99,8 +99,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
     # For Each Node Communication
     def do_GET(self):
         global logcount
-        global isVoted
-        global getrequest
+        global term
         try:
             args = self.path.split('/')
             if len(args) == 7:
@@ -134,7 +133,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 json_obj = json.loads(post_body)
                 expectedTerm = int(json_obj["term"])
                 expectedIndex = int(json_obj["index"])
-                logarray = loadFile("test.txt")
+                logarray = loadFile("commitedLog.txt")
                 if (getTermFromIndex(logarray,expectedIndex) == expectedTerm):
                     self.wfile.write(expectedTerm,"/",expectedIndex,"/ok".encode('utf-8'))
                 else:
@@ -148,7 +147,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
                 expectedNextIndex = int(json_obj["index"])
-                log_array = loadFile("test.txt")
+                log_array = loadFile("commitedLog.txt")
                 realNextIndex = getLastLogIndex(log_array)+1
                 self.wfile.write((expectedNextIndex,"/",realNextIndex).encode('utf-8'))
                 self.send_response(200)
@@ -180,7 +179,6 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 signal.alarm(timeout_interval)
             # Got request from client
             elif len(args) == 2:
-                global term
                 # Ask to daemon
                 if (leader):
                     currentIndex += 1
@@ -221,22 +219,21 @@ class WorkerHandler(BaseHTTPRequestHandler):
             self.end_headers()
             print(ex)
 
-
-# Ini Buat baca file, baca paramnya sesuai urutan aja
-# myarray = loadFile("test.txt")
-# for log in myarray:
-#     for x in log:
-#         print x
-#     print "______"
-
 # Function called when time out occured
 def timeOut(signum, frame):
+    global allMatchIndex
+    global allNextIndex
+    global allPhase
     global leader
     global sumVote
     global term
     if (sumVote>0):
         leader = true
         sumVote = 0
+        allMatchIndex = {0,0,0,0,0}
+        nextIndex = getLastLogIndex(loadFile("commitedLog.txt")) + 1
+        allNextIndex = {nextIndex,nextIndex,nextIndex,nextIndex,nextIndex}
+        allPhase = {0,0,0,0,0}
     else:
         term += 1
         # Send leader election request
@@ -253,11 +250,14 @@ def timeOut(signum, frame):
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
                 conn.request("GET", "/leader/election",json.dumps(data),headers)
                 r1 = conn.getresponse()
-                print r1.status, r1.reason
-                data = response.read()
-                readData = data.split('/')
-                if (readData[0] == term):
-                    sumVote += readData[1]
+                if (r1.status == 200):
+                    data = response.read()
+                    readData = data.split('/')
+                    if (readData[0] == term):
+                        sumVote += readData[1]
+                else:
+                    print r1.status, r1.reason
+
 
 # FUNCTIONS FOR RETIEVE LOG
 # BUT YOU NEED TO LOADFILE FIRST
@@ -289,143 +289,138 @@ def getJsonFromLog(log):
     json_data = json.dumps(data)
     return json_data
 
-
-def leaderProcess(): # TBD make as an thread for each child nodes
-    print "Leader process"
-    allMatchIndex = {0,0,0,0,0} # TBD from logs
-    allNextIndex = {2,2,2,2,2} # TBD from logs then just fill the child node's with the same value as leader
-    allPhase = {0,0,0,0,0}
+def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
+    print "Leader process", childNodeNumber, "\n"
+    global allMatchIndex # TBD from logs
+    global allNextIndex # TBD from logs then just fill the child node's with the same value as leader
+    global allPhase
     while (1):
         if (leader):
-            for x in range(0,len(nodes)):
-                if (x != nodenumber):
-                    # Getting index and term of child nodes
-                    # Already up to date
-                    if (steady):
-                        time.sleep(timeout_interval)
-                    if (allPhase[x] == 0):
-                        print "Sending next index to ",nodes[x]
-                        conn = httplib.HTTPConnection(nodes[x])
-                        data = {
-                            "index": allNextIndex[x]
-                        }
-                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                        conn.request("GET", "/samain/next/index",json.dumps(data),headers)
-                        r1 = conn.getresponse()
-                        print r1.status, r1.reason
-                        if (r1.status != "200"):
-                            allPhase[x] = 0
-                            steady = True
+            print "I am leader \n"
+            # Getting index and term of child nodes
+            # Already up to date
+            if (steady):
+                time.sleep(timeout_interval)
+            if (allPhase[childNodeNumber] == 0):
+                print "Sending next index to ",nodes[childNodeNumber]
+                conn = httplib.HTTPConnection(nodes[childNodeNumber])
+                data = {
+                    "index": allNextIndex[childNodeNumber]
+                }
+                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                conn.request("GET", "/samain/next/index",json.dumps(data),headers)
+                r1 = conn.getresponse()
+                print r1.status, r1.reason
+                if (r1.status != "200"):
+                    allPhase[childNodeNumber] = 0
+                    steady = True
+                else:
+                    steady = False
+                    data = response.read()
+                    readData = data.split('/') # Expected value -> next index/index result
+                    # Check if no corrupted value
+                    if (allNextIndex[childNodeNumber] == readData[0]):
+                        if (allNextIndex[childNodeNumber] == readData[1]):
+                            allPhase[childNodeNumber] = 1
+                            allMatchIndex[childNodeNumber] = readData[1]-1 # Temporaly
                         else:
-                            steady = False
-                            data = response.read()
-                            readData = data.split('/') # Expected value -> next index/index result
-                            # Check if no corrupted value
-                            if (allNextIndex[x] == readData[0]):
-                                if (allNextIndex[x] == readData[1]):
-                                    allPhase[x] = 1
-                                    allMatchIndex[x] = readData[1]-1 # Temporaly
-                                else:
-                                    allNextIndex[x] -= 1
-                        conn.close()
-                    elif (allPhase == 1):
-                        term = allMatchIndex[x] # TBD from logs based on allMatchIndex
-                        print "Sending term and index to ",nodes[x]
-                        conn = httplib.HTTPConnection(nodes[x])
-                        data = {
-                            "term": term,
-                            "index": allMatchIndex[x]
-                        }
-                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                        conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
-                        r1 = conn.getresponse()
-                        print r1.status, r1.reason
-                        if (r1.status != "200"):
-                            allPhase[x] = 0
-                            steady = True
+                            allNextIndex[childNodeNumber] -= 1
+                conn.close()
+            elif (allPhase == 1):
+                term = allMatchIndex[childNodeNumber] # TBD from logs based on allMatchIndex
+                print "Sending term and index to ",nodes[childNodeNumber]
+                conn = httplib.HTTPConnection(nodes[childNodeNumber])
+                data = {
+                    "term": term,
+                    "index": allMatchIndex[childNodeNumber]
+                }
+                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
+                r1 = conn.getresponse()
+                print r1.status, r1.reason
+                if (r1.status != "200"):
+                    allPhase[childNodeNumber] = 0
+                    steady = True
+                else:
+                    steady = False
+                    data = response.read()
+                    readData = data.split('/') # Expected value -> term/match index/ok||no
+                    # Check if no corrupted value
+                    if (term == readData[0]) and (allMatchIndex[childNodeNumber] == readData[1]):
+                        if ("ok" == readData[2]):
+                            allPhase[childNodeNumber] = 2
                         else:
-                            steady = False
-                            data = response.read()
-                            readData = data.split('/') # Expected value -> term/match index/ok||no
-                            # Check if no corrupted value
-                            if (term == readData[0]) and (allMatchIndex[x] == readData[1]):
-                                if ("ok" == readData[2]):
-                                    allPhase[x] = 2
-                                else:
-                                    allNextIndex[x] -= 1
-                                    allMatchIndex[x] -= 1
-                        conn.close()
-                    # Match index found -> Sending logs
-                    elif (allPhase[x] == 2):
-                        print "Sending necessary logs to ",nodes[x]
-                        log = "log"  # TBD retrieve logs from allMatchIndex[x]+1 up to current index one by one
-                        conn = httplib.HTTPConnection(nodes[x])
-                        data = {
-                            "logs": log
-                        }
-                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                        conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
-                        r1 = conn.getresponse()
-                        print r1.status, r1.reason
-                        if (r1.status != "200"):
-                            allPhase[x] = 0
-                            steady = True
-                        else:
-                            steady = False
-                            data = response.read()
-                            if (data == log):
-                                allNextIndex[x] += 1
-                                allMatchIndex[x] += 1
-                            if (allMatchIndex[x] == currentIndex):
-                                allPhase[x] = 3
-                                steady = True
-                        conn.close()
-                    elif (allPhase[x] == 3):
-                        print "Just checking to ",nodes[x]
-                        log = "log"  # TBD retrieve logs from allMatchIndex[x]+1 up to current index one by one
-                        conn = httplib.HTTPConnection(nodes[x])
-                        sumCommit = 1
-                        for i in range(0,len(nodes)):
-                            if (i != nodenumber) and (allPhase[i] == 3):
-                                sumCommit += 1
-                        if (sumCommit >= 3):
-                            commitIndex = allMatchIndex[x]
-                            data = {
-                                "commit": 1
-                            }
-                        else:
-                            data = {
-                                "commit": 0
-                            }
-                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                        conn.request("GET", "/index/term/log/check",json.dumps(data),headers)
-                        r1 = conn.getresponse()
-                        print r1.status, r1.reason
-                        if (r1.status != "200"):
-                            allPhase[x] = 0
-                        if (allMatchIndex[x] != currentIndex):
-                            allPhase[x] = 0
-                            steady = False
-                        conn.close()
+                            allNextIndex[childNodeNumber] -= 1
+                            allMatchIndex[childNodeNumber] -= 1
+                conn.close()
+            # Match index found -> Sending logs
+            elif (allPhase[childNodeNumber] == 2):
+                print "Sending necessary logs to ",nodes[childNodeNumber]
+                log = "log"  # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
+                conn = httplib.HTTPConnection(nodes[childNodeNumber])
+                data = {
+                    "logs": log
+                }
+                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
+                r1 = conn.getresponse()
+                print r1.status, r1.reason
+                if (r1.status != "200"):
+                    allPhase[childNodeNumber] = 0
+                    steady = True
+                else:
+                    steady = False
+                    data = response.read()
+                    if (data == log):
+                        allNextIndex[childNodeNumber] += 1
+                        allMatchIndex[childNodeNumber] += 1
+                    if (allMatchIndex[childNodeNumber] == currentIndex):
+                        allPhase[childNodeNumber] = 3
+                        steady = True
+                conn.close()
+            elif (allPhase[childNodeNumber] == 3):
+                print "Just checking to ",nodes[childNodeNumber]
+                log = "log"  # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
+                conn = httplib.HTTPConnection(nodes[childNodeNumber])
+                sumCommit = 1
+                for i in range(0,len(nodes)):
+                    if (i != nodenumber) and (allPhase[i] == 3):
+                        sumCommit += 1
+                if (sumCommit >= 3):
+                    commitIndex = allMatchIndex[childNodeNumber]
+                    data = {
+                        "commit": 1
+                    }
+                else:
+                    data = {
+                        "commit": 0
+                    }
+                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                conn.request("GET", "/index/term/log/check",json.dumps(data),headers)
+                r1 = conn.getresponse()
+                print r1.status, r1.reason
+                if (r1.status != "200"):
+                    allPhase[childNodeNumber] = 0
+                if (allMatchIndex[childNodeNumber] != currentIndex):
+                    allPhase[childNodeNumber] = 0
+                    steady = False
+                conn.close()
 
 # INITIALIZERS
 # How to RUN!!
 # python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL
-if len(sys.argv) < 4:
-    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL"
+if len(sys.argv) < 3:
+    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER TIMEOUTINTERVAL"
     sys.exit(1)
 
-leader = 0
-isVoted = 1
-logcount = 0
-getrequest = False
+leader = False
 nodenumber = int(sys.argv[1])
 sumVote = 0
 term = 0
-
-# PORT = 13337
-PORT = int(sys.argv[2])
-timeout_interval = int(sys.argv[3])
+allMatchIndex = {}
+allNextIndex = {}
+allPhase = {}
+timeout_interval = int(sys.argv[2])
 
 # Initialize daftar node
 fileNode = open("node.txt","r")
@@ -437,10 +432,16 @@ while 1:
     nodes.append(line)
 fileNode.close
 
+ipPort = nodes[nodenumber].split(":")
+port = int(ipPort[1])
 signal.signal(signal.SIGALRM, timeOut)
 signal.alarm(timeout_interval)
-server = HTTPServer(("", PORT), WorkerHandler)
-th = threading.Thread(target=leaderProcess)
-th.daemon = True
-th.start()
+server = HTTPServer(("", port), LoadBalancer)
+print port
+th = {}
+for i in range(0,len(nodes)):
+    if (i!=nodenumber):
+        th[i] = threading.Thread(target=leaderProcess, kwargs={'childNodeNumber': i})
+        th[i].daemon = True
+        th[i].start()
 server.serve_forever()
