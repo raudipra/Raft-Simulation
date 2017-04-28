@@ -4,30 +4,29 @@ import psutil,os
 import sys
 import time
 
-class Daemon(BaseHTTPRequestHandler):
-    # For Client Handling
-    def do_POST(self):
-        print "POST request"
-
-    # For Each Node Communication
-    def do_GET(self):
-		p = psutil.virtual_memory()
-		freeMemory = p.free
-		print freeMemory
-		self.wfile.write(str(freeMemory).encode('utf-8'))
-		self.send_response(200)
-		self.end_headers()
-
-        except Exception as ex:
-            self.send_response(500)
-            self.end_headers()
-            print(ex)
-
 # Port ganti jadi yang bener
+registered_ports=[10000,10002,10007,10004,10005]
+
 if len(sys.argv) < 2:
 	print "Should be :"
-	print "\t python daemon.py [port]"
+	print "\t python daemon.py [machine_index]"
 	sys.exit(1)
 
-server = HTTPServer(("", sys.argv[1]), Daemon)
-server.serve_forever()
+machine_idx = sys.argv[1]
+p = psutil.virtual_memory()
+freeMemory = p.free
+
+while 1 :
+	for port in registered_ports:
+		address = "localhost:"+str(port)
+		print "Sending machine detail to ",address
+		conn = httplib.HTTPConnection(address)
+		data = {
+		    "machine_idx": machine_idx,
+		    "cpu_load" : freeMemory
+		}
+		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+		conn.request("GET", "/",json.dumps(data),headers)
+		r1 = conn.getresponse()
+		print r1.status, r1.reason
+	time.sleep(6)

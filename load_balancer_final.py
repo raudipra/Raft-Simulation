@@ -101,8 +101,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
     # For Each Node Communication
     def do_GET(self):
-        global logcount
         global term
+        global machine_info
         try:
             args = self.path.split('/')
             if len(args) == 7:
@@ -133,7 +133,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     cpu_load2 = json_obj["cpu_load2"]
                     term = json_obj["term"]
 
-                    single_data_text = str(logcount)+" ____________________________________\n\n"
+                    currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt")))
+                    single_data_text = str(currentIndex+1)+" ____________________________________\n\n"
                     single_data_text += "Address1: "+address1+" \n"
                     single_data_text += "Port1: "+ port1+" \n"
                     single_data_text += "CPU Load1: "+ cpu_load1+" \n"
@@ -145,7 +146,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     print single_data_text
 
                     # INI UNTUK SAVE KE FILE EXTERNAL
-                    addToFile("logTemp"+str(nodenumber)+".txt",logs)
+                    addToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
 
                 self.wfile.write("/"+post_body+"/")
                 self.send_response(200)
@@ -196,50 +197,64 @@ class LoadBalancer(BaseHTTPRequestHandler):
                         resp = "/"+str(reqTerm)+"/1/"
                         self.wfile.write(resp)
                     else:
-                        resp = "/"+str(reqTerm)+"/-1/"
+                        resp = "/"+str(reqTerm)+"/0/"
                         self.wfile.write(resp)
                     term += reqTerm
                 else:
-                    resp = "/"+str(reqTerm)+"/-1/"
+                    resp = "/"+str(reqTerm)+"/0/"
                     self.wfile.write(resp)
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
             # Got request from client
             elif len(args) == 2:
-                # Ask to daemon
-                if (leader):
-                    currentIndex += 1
-                    indexLog = currentIndex," ____________________________________\n\n"
-                    global workers
-                    choosenWorkers = ""
-                    minFreeMemory = 999999999999
-                    for i in range(0,len(workers)):
-                        sent = False
-                        while (not sent):
-                            print "Sending daemon request to ",workers[i]
-                            conn = httplib.HTTPConnection(workers[i],":20000") # Address worker port 20000 is daemon
-                            data = {}
-                            headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                            conn.request("GET", "/",json.dumps(data),headers)
-                            r1 = conn.getresponse()
-                            print r1.status, r1.reason
-                            if (r1.status == "200"):
-                                sent = True
-                                data = r1.read()
-                                if (int(data) < min):
-                                    min = int(data)
-                                    choosenWorkers = workers[i]
-                                dataLog[i] = "Address",i,": ",workers[i],"\nCPU Load1: ",data,"\n"
-                            conn.close()
-                    termLog = "term: ",term,"\n\n______________________________________"
-                    fullLog = indexLog,dataLog,termLog
-                    addToFile("logTemp"+str(nodenumber)+".txt",fullLog)
+                print "This is from daemon"
+                if leader:
+                    content_len = int(self.headers.getheader('content-length', 0))
+                    post_body = self.rfile.read(content_len)
+                    json_obj = json.loads(post_body)
 
-                    # Send free address to Client
-                    self.wfile.write(choosenWorkers)
-                    self.send_response(200)
-                    self.end_headers()
+                    machine_idx = json_obj["machine_idx"]
+                    cpu_load = json_obj["cpu_load"]
+
+                    print "Machine Idx: ",machine_idx
+                    print "CPU_LOAD: ",cpu_load,"\n"
+
+                    # Abis dapet data dari daemon diapain??
+                    # Nunggu semua machine ngabarin apa gmn?
+                    # Lanjutin rau, wieg
+                    # WKWKWKWKWK
+                    single_machine = []
+                    if (len(machine_info) == 0):
+                        single_machine.append(machine_idx)
+                        single_machine.append(cpu_load)
+                        machine_info.append(single_machine)
+                        print "LEN MACHINE",str(len(machine_info))
+                        logcount = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from log
+                    elif (len(machine_info) == 1):
+                        if machine_idx != machine_info[0][0]:
+                            single_machine.append(machine_idx)
+                            single_machine.append(cpu_load)
+                            machine_info.append(single_machine)
+                            print "LEN MACHINE",str(len(machine_info))
+                            logcount = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from log
+                            single_data_text = str(logcount+1)+" ____________________________________\n\n"
+                            dummy = machines[int(machine_info[0][0])].split(":")
+                            single_data_text += "Address1: "+dummy[0]+" \n"
+                            single_data_text += "Port1: "+ dummy[1]
+                            single_data_text += "CPU Load1: "+ str(machine_info[0][1])+" \n"
+                            dummy = machines[int(machine_info[1][0])].split(":")
+                            single_data_text += "Address2: "+dummy[0]+" \n"
+                            single_data_text += "Port2: "+ dummy[1]
+                            single_data_text += "CPU Load2: "+ str(machine_info[1][1])+" \n"
+                            single_data_text += "Term: "+ str(term)+" \n"
+                            single_data_text += "\n______________________________________\n"
+
+                            addToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
+                            machine_info[:] = []
+
+                self.send_response(200)
+                self.end_headers()
 
 
         except Exception as ex:
@@ -258,7 +273,7 @@ def timeOut(signum, frame):
     global nodenumber
     global nodes
     print str(sumVote)+"ini sumvote \n"
-    if (sumVote>0):
+    if (sumVote>=3):
         print "Jadi leader"
         leader = True
         sumVote = 0
@@ -271,6 +286,8 @@ def timeOut(signum, frame):
         # Send leader election request
         signal.alarm(timeout_interval)
         for x in range(0,len(nodes)):
+            if (sumVote >= 3):
+                break
             if (x != nodenumber):
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 print "Sending request to ",nodes[x]
@@ -385,6 +402,8 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                                 allPhase[childNodeNumber] = 3
                                 steady = True
                                 print "Masuk 3"
+                            elif (allMatchIndex[childNodeNumber] == -1):
+                                allPhase[childNodeNumber] = 2
                             else:
                                 allPhase[childNodeNumber] = 1
                         else:
@@ -481,12 +500,13 @@ if len(sys.argv) < 3:
 
 leader = False
 nodenumber = int(sys.argv[1])
-sumVote = 0
+sumVote = 1
 term = 0
 commit = 0
 allMatchIndex = []
 allNextIndex = []
 allPhase = []
+machine_info = []
 timeout_interval = int(sys.argv[2])
 
 # Initialize daftar node
@@ -498,6 +518,16 @@ while 1:
         break
     nodes.append(line)
 fileNode.close
+
+# Initialize daftar machine
+fileMachine = open("machine.txt","r")
+machines = []
+while 1:
+    line = fileMachine.readline()
+    if not line:
+        break
+    machines.append(line)
+fileMachine.close
 
 ipPort = nodes[nodenumber].split(":")
 port = int(ipPort[1])
