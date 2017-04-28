@@ -12,6 +12,7 @@ from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
 def loadFile(filename):
+    # Function to read log file and load the content to array
     try:
         F = open(filename,"r")
         n = 0
@@ -70,18 +71,20 @@ def loadFile(filename):
         return []
 
 def addToFile(filename,addedtext):
-    # Kalo mau nimpa semua, tinggal ganti a jadi w
+    # Function to add string into log file txt
+    # Replace 'a' into 'w' to overwrite the whole file
     F = open(filename,"a")
     F.write(addedtext)
     F.close
 
 def writeToFile(filename,addedtext):
-    # Kalo mau nimpa semua, tinggal ganti a jadi w
+    # Function to write string into log file
     F = open(filename,"w")
     F.write(addedtext)
     F.close
 
 def moveTempToActualLogs(src,dst):
+    #Function to add temp into log file
     S = open(src,"r")
     # Fill commited logs file with temporary logs file
     while 1:
@@ -105,7 +108,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
         global machine_info
         try:
             args = self.path.split('/')
-            if len(args) == 7:
+            if len(args) == 7: #length of param to identify kind of request
+                # Entering the phase 3,
                 print "This is phase 3 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -119,12 +123,14 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 self.end_headers()
                 signal.alarm(timeout_interval)
             elif len(args) == 6:
+                # Entering the phase 2
                 print "This is phase 2 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
                 # logs = json_obj["logs"]
-                if not json_obj:
+                if not json_obj: # If json_obj is empty
+                
                     address1 = json_obj["address1"]
                     port1 = json_obj["port1"]
                     cpu_load1 = json_obj["cpu_load1"]
@@ -133,6 +139,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     cpu_load2 = json_obj["cpu_load2"]
                     term = json_obj["term"]
 
+                    # Format for the log file
                     currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt")))
                     single_data_text = str(currentIndex+1)+" ____________________________________\n\n"
                     single_data_text += "Address1: "+address1+" \n"
@@ -145,7 +152,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     single_data_text += "\n______________________________________\n"
                     print single_data_text
 
-                    # INI UNTUK SAVE KE FILE EXTERNAL
+                    # Save into log file
                     addToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
 
                 self.wfile.write("/"+post_body+"/")
@@ -153,6 +160,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 self.end_headers()
                 signal.alarm(timeout_interval)
             elif len(args) == 5:
+                # Entering the phase 1
                 print "This is phase 1 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -160,7 +168,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 expectedTerm = int(json_obj["term"])
                 expectedIndex = int(json_obj["index"])
                 logarray = loadFile("commitedLog"+str(nodenumber)+".txt")
-                if (int(getTermFromIndex(logarray,expectedIndex)) == expectedTerm):
+
+                if (int(getTermFromIndex(logarray,expectedIndex)) == expectedTerm): # Match
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/ok/")
                 else:
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/no/")
@@ -169,6 +178,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 self.end_headers()
                 signal.alarm(timeout_interval)
             elif len(args) == 4:
+                # Entering the phase 0 initial phase
                 print "This is phase 0 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -184,7 +194,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 signal.alarm(timeout_interval)
             # Got election request
             elif len(args) == 3:
-
+                # Conduct voting
                 print "This is election request for vote"
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 content_len = int(self.headers.getheader('content-length', 0))
@@ -206,8 +216,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
-            # Got request from client
+            # Get request from client
             elif len(args) == 2:
+                # From daemon
                 print "This is from daemon"
                 if leader:
                     content_len = int(self.headers.getheader('content-length', 0))
@@ -220,19 +231,18 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     print "Machine Idx: ",machine_idx
                     print "CPU_LOAD: ",cpu_load,"\n"
 
-                    # Abis dapet data dari daemon diapain??
-                    # Nunggu semua machine ngabarin apa gmn?
-                    # Lanjutin rau, wieg
-                    # WKWKWKWKWK
                     single_machine = []
                     if (len(machine_info) == 0):
+                        # Hasnt received from daemon
                         single_machine.append(machine_idx)
                         single_machine.append(cpu_load)
                         machine_info.append(single_machine)
                         print "LEN MACHINE",str(len(machine_info))
                         logcount = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from log
                     elif (len(machine_info) == 1):
+                        # Received from daemon
                         if machine_idx != machine_info[0][0]:
+                            #
                             single_machine.append(machine_idx)
                             single_machine.append(cpu_load)
                             machine_info.append(single_machine)
@@ -262,8 +272,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
             self.end_headers()
             print(ex)
 
-# Function called when time out occured
+
 def timeOut(signum, frame):
+    # Function called when time out occured
     global allMatchIndex
     global allNextIndex
     global allPhase
@@ -274,6 +285,7 @@ def timeOut(signum, frame):
     global nodes
     print str(sumVote)+"ini sumvote \n"
     if (sumVote>=3):
+        # Become leader when the vote is 3 or more
         print "Jadi leader"
         leader = True
         sumVote = 0
@@ -317,18 +329,21 @@ def timeOut(signum, frame):
 # > log_array = loadFile(filename)
 
 def getLog(log_array,index):
+    # Function to retrieve log from array based on index given as parameter
     if (not log_array):
         return ""
     else:
         return log_array[index]
 
 def getTermFromIndex(log_array,index):
+    # Function to retrieve term from array based on index given as parameter
     if (not log_array):
         return "0"
     else:
         return log_array[index][7]
 
 def getLastLogIndex(log_array):
+    # Function to retrieve last log
     if (not log_array):
         return "-1"
     else:
@@ -338,6 +353,7 @@ def getLastLogIndex(log_array):
 # log = log_array[index]
 # Output dari fungsi ini tinggal dikirim aja, gausah diapa-apain lagi
 def getJsonFromLog(log):
+    # Function to retrieve Json from log
     data = {}
     # Index perlu ga?
     # data["index"] = log[0]
@@ -352,6 +368,7 @@ def getJsonFromLog(log):
     return json_data
 
 def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
+
     print "Leader process", childNodeNumber, "\n"
     global allMatchIndex # TBD from logs
     global allNextIndex # TBD from logs then just fill the child node's with the same value as leader
