@@ -251,6 +251,9 @@ def getTermFromIndex(log_array,index):
 def getLastLogIndex(log_array):
     return log_array[len(log_array)-1][0]
 
+# Reminder
+# log = log_array[index]
+# Output dari fungsi ini tinggal dikirim aja, gausah diapa-apain lagi
 def getJsonFromLog(log):
     data = {}
     # Index perlu ga? 
