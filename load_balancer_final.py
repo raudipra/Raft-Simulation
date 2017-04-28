@@ -134,20 +134,22 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 json_obj = json.loads(post_body)
                 expectedTerm = int(json_obj["term"])
                 expectedIndex = int(json_obj["index"])
-                if (getTermFromIndex(logarray??,expectedIndex) == expectedTerm):
+                logarray = loadFile("test.txt")
+                if (getTermFromIndex(logarray,expectedIndex) == expectedTerm):
                     self.wfile.write(expectedTerm,"/",expectedIndex,"/ok".encode('utf-8'))
                 else:
                     self.wfile.write(expectedTerm,"/",expectedIndex,"no".encode('utf-8'))
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
-            elif len(args) == 4
+            elif len(args) == 4:
                 print "This is phase 0 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
                 expectedNextIndex = int(json_obj["index"])
-                realNextIndex = getLastLogIndex(logarray??)+1
+                log_array = loadFile("test.txt")
+                realNextIndex = getLastLogIndex(log_array)+1
                 self.wfile.write((expectedNextIndex,"/",realNextIndex).encode('utf-8'))
                 self.send_response(200)
                 self.end_headers()
@@ -182,13 +184,13 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 # Ask to daemon
                 if (leader):
                     currentIndex += 1
-                    indexLog = currentIndex," ____________________________________\n\n
+                    indexLog = currentIndex," ____________________________________\n\n"
                     global workers
                     choosenWorkers = ""
                     minFreeMemory = 999999999999
-                    for i in range(0,len(workers))
+                    for i in range(0,len(workers)):
                         sent = False
-                        while (!sent):
+                        while (not sent):
                             print "Sending daemon request to ",workers[i]
                             conn = httplib.HTTPConnection(workers[i],":20000") # Address worker port 20000 is daemon
                             data = {}
@@ -202,9 +204,9 @@ class WorkerHandler(BaseHTTPRequestHandler):
                                 if (int(data) < min):
                                     min = int(data)
                                     choosenWorkers = workers[i]
-                                dataLog[i] = "Address",i": ",workers[i]"\nCPU Load1: ",data"\n"
+                                dataLog[i] = "Address",i,": ",workers[i],"\nCPU Load1: ",data,"\n"
                             conn.close()
-                    termLog = "term: ",term"\n\n______________________________________"
+                    termLog = "term: ",term,"\n\n______________________________________"
                     fullLog = indexLog,dataLog,termLog
                     addToFile("logTemp.txt",fullLog)
 
@@ -243,15 +245,15 @@ def timeOut(signum, frame):
             if (x != nodenumber):
                 currentIndex = 1 # TBD from logs
                 print "Sending request to ",nodes[x]
-        		conn = httplib.HTTPConnection(node[x])
-        		data = {
-        		    "term": term
+                conn = httplib.HTTPConnection(nodes[x])
+                data = {
+                    "term": term,
                     "index": currentIndex
-        		}
-        		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-        		conn.request("GET", "/leader/election",json.dumps(data),headers)
-        		r1 = conn.getresponse()
-        		print r1.status, r1.reason
+                }
+                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                conn.request("GET", "/leader/election",json.dumps(data),headers)
+                r1 = conn.getresponse()
+                print r1.status, r1.reason
                 data = response.read()
                 readData = data.split('/')
                 if (readData[0] == term):
@@ -303,14 +305,14 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                         time.sleep(timeout_interval)
                     if (allPhase[x] == 0):
                         print "Sending next index to ",nodes[x]
-                		conn = httplib.HTTPConnection(nodes[x])
-                		data = {
-                		    "index": allNextIndex[x]
-                		}
-                		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/samain/next/index",json.dumps(data),headers)
-                		r1 = conn.getresponse()
-                		print r1.status, r1.reason
+                        conn = httplib.HTTPConnection(nodes[x])
+                        data = {
+                            "index": allNextIndex[x]
+                        }
+                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                        conn.request("GET", "/samain/next/index",json.dumps(data),headers)
+                        r1 = conn.getresponse()
+                        print r1.status, r1.reason
                         if (r1.status != "200"):
                             allPhase[x] = 0
                             steady = True
@@ -329,15 +331,15 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                     elif (allPhase == 1):
                         term = allMatchIndex[x] # TBD from logs based on allMatchIndex
                         print "Sending term and index to ",nodes[x]
-                		conn = httplib.HTTPConnection(nodes[x])
-                		data = {
-                            "term": term
-                		    "index": allMatchIndex[x]
-                		}
-                		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
-                		r1 = conn.getresponse()
-                		print r1.status, r1.reason
+                        conn = httplib.HTTPConnection(nodes[x])
+                        data = {
+                            "term": term,
+                            "index": allMatchIndex[x]
+                        }
+                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                        conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
+                        r1 = conn.getresponse()
+                        print r1.status, r1.reason
                         if (r1.status != "200"):
                             allPhase[x] = 0
                             steady = True
@@ -346,7 +348,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                             data = response.read()
                             readData = data.split('/') # Expected value -> term/match index/ok||no
                             # Check if no corrupted value
-                            if (term = readData[0]) && (allMatchIndex[x] == readData[1]):
+                            if (term == readData[0]) and (allMatchIndex[x] == readData[1]):
                                 if ("ok" == readData[2]):
                                     allPhase[x] = 2
                                 else:
@@ -357,14 +359,14 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                     elif (allPhase[x] == 2):
                         print "Sending necessary logs to ",nodes[x]
                         log = "log"  # TBD retrieve logs from allMatchIndex[x]+1 up to current index one by one
-                		conn = httplib.HTTPConnection(nodes[x])
-                		data = {
-                		    "logs": log
-                		}
-                		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
-                		r1 = conn.getresponse()
-                		print r1.status, r1.reason
+                        conn = httplib.HTTPConnection(nodes[x])
+                        data = {
+                            "logs": log
+                        }
+                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                        conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
+                        r1 = conn.getresponse()
+                        print r1.status, r1.reason
                         if (r1.status != "200"):
                             allPhase[x] = 0
                             steady = True
@@ -381,24 +383,24 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                     elif (allPhase[x] == 3):
                         print "Just checking to ",nodes[x]
                         log = "log"  # TBD retrieve logs from allMatchIndex[x]+1 up to current index one by one
-                		conn = httplib.HTTPConnection(nodes[x])
+                        conn = httplib.HTTPConnection(nodes[x])
                         sumCommit = 1
                         for i in range(0,len(nodes)):
-                            if (i != nodenumber) && (allPhase[i] == 3):
+                            if (i != nodenumber) and (allPhase[i] == 3):
                                 sumCommit += 1
                         if (sumCommit >= 3):
                             commitIndex = allMatchIndex[x]
-                    		data = {
+                            data = {
                                 "commit": 1
                             }
                         else:
                             data = {
                                 "commit": 0
                             }
-                		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/index/term/log/check",json.dumps(data),headers)
-                		r1 = conn.getresponse()
-                		print r1.status, r1.reason
+                        headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                        conn.request("GET", "/index/term/log/check",json.dumps(data),headers)
+                        r1 = conn.getresponse()
+                        print r1.status, r1.reason
                         if (r1.status != "200"):
                             allPhase[x] = 0
                         if (allMatchIndex[x] != currentIndex):
@@ -418,18 +420,21 @@ isVoted = 1
 logcount = 0
 getrequest = False
 nodenumber = int(sys.argv[1])
+sumVote = 0
+term = 0
+
 # PORT = 13337
 PORT = int(sys.argv[2])
 timeout_interval = int(sys.argv[3])
 
 # Initialize daftar node
 fileNode = open("node.txt","r")
-nodes = {}
+nodes = []
 while 1:
     line = fileNode.readline()
     if not line:
         break
-    nodes[i] = line
+    nodes.append(line)
 fileNode.close
 
 signal.signal(signal.SIGALRM, timeOut)
