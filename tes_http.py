@@ -18,10 +18,11 @@ import httplib, urllib
 params = urllib.urlencode({'spam': 1, 'eggs': 2, 'bacon': 0})
 headers = {"Content-type": "application/x-www-form-urlencoded",
            "Accept": "text/plain"}
-conn = httplib.HTTPConnection("localhost:10001")
+conn = httplib.HTTPConnection("localhost:10000")
 conn.request("POST", "/", params, headers)
 response = conn.getresponse()
 print response.status, response.reason
 
 data = response.read()
+print data
 conn.close()
