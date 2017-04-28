@@ -133,6 +133,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
             #     self.end_headers()
             #     signal.alarm(timeout_interval)
             if len(args) == 6:
+                signal.alarm(random.randint(12, 20))
                 print "This is phase 2 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -167,8 +168,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 self.wfile.write("/"+post_body+"/")
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(random.randint(12, 20))
             elif len(args) == 5:
+                signal.alarm(random.randint(12, 20))
                 print "This is phase 1 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -183,8 +184,8 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(random.randint(12, 20))
             elif len(args) == 4:
+                signal.alarm(random.randint(12, 20))
                 print "This is phase 0 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
@@ -197,10 +198,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(random.randint(12, 20))
             # Got election request
             elif len(args) == 3:
-
+                signal.alarm(random.randint(12, 20))
                 print "This is election request for vote"
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 content_len = int(self.headers.getheader('content-length', 0))
@@ -221,7 +221,6 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     self.wfile.write(resp)
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(random.randint(12, 20))
             # Got request from client
             elif len(args) == 2:
                 print "This is from daemon"
@@ -302,9 +301,6 @@ def timeOut(signum, frame):
         # Send leader election request
         signal.alarm(random.randint(5, 9))
         for x in range(0,len(nodes)):
-            if (sumVote >= 3):
-                signal.alarm(0)
-                break
             if (x != nodenumber):
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
                 print "Sending request to ",nodes[x]
@@ -325,6 +321,11 @@ def timeOut(signum, frame):
                         print "masuk"
                         sumVote += int(readData[2])
                         print str(sumVote)+"ini sumvote \n"
+                        if (sumVote >= 3):
+                            print "Masuk alarm 0"
+                            signal.alarm(1)
+                            print "Masuk alarm 0"
+                            break
                 else:
                     print r1.status, r1.reason
 
