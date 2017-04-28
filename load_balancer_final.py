@@ -237,6 +237,35 @@ nodenumber = int(sys.argv[1])
 PORT = int(sys.argv[2])
 timeout_interval = int(sys.argv[3])
 
+
+# FUNCTIONS FOR RETIEVE LOG
+# BUT YOU NEED TO LOADFILE FIRST
+# > log_array = loadFile(filename)
+
+def getLog(log_array,index):
+    return log_array[index]
+
+def getTermFromIndex(log_array,index):
+    return log_array[index][7]
+
+def getLastLogIndex(log_array):
+    return log_array[len(log_array)-1][0]
+
+def getJsonFromLog(log):
+    data = {}
+    # Index perlu ga? 
+    # data["index"] = log[0]
+    data["address1"] = log[1]
+    data["port1"] = log[2]
+    data["cpu_load1"] = log[3]
+    data["address2"] = log[4]
+    data["port2"] = log[5]
+    data["cpu_load2"] = log[6]
+    data["term"] = log[7]
+    json_data = json.dumps(data)
+    return json_data
+
+
 def leaderProcess(): # TBD make as an thread for each child nodes
     print "Leader process"
     allMatchIndex = {0,0,0,0,0} # TBD from logs
