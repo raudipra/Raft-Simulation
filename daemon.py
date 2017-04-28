@@ -4,29 +4,30 @@ import psutil,os
 import sys
 import time
 
-# Port ganti jadi yang bener
-registered_ports=[13337,8080,7341,13237,13376]
+class WorkerHandler(BaseHTTPRequestHandler):
+    # For Client Handling
+    def do_POST(self):
+        print "POST request"
 
+    # For Each Node Communication
+    def do_GET(self):
+		p = psutil.virtual_memory()
+		freeMemory = p.free
+		print freeMemory
+		self.wfile.write(str(freeMemory).encode('utf-8'))
+		self.send_response(200)
+		self.end_headers()
+
+        except Exception as ex:
+            self.send_response(500)
+            self.end_headers()
+            print(ex)
+
+# Port ganti jadi yang bener
 if len(sys.argv) < 2:
 	print "Should be :"
-	print "\t python daemon.py [machine_index]"
+	print "\t python daemon.py [port]"
 	sys.exit(1)
 
-machine_idx = sys.argv[1]
-p = psutil.virtual_memory()
-freeMemory = p.free
-
-while 1 :
-	for port in registered_ports:
-		address = "localhost:"+str(port)
-		print "Sending machine detail to ",address
-		conn = httplib.HTTPConnection(address)
-		data = {
-		    "machine_idx": machine_idx,
-		    "cpu_load" : freeMemory
-		}
-		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-		conn.request("GET", "/from/daemon/",json.dumps(data),headers)
-		r1 = conn.getresponse()
-		print r1.status, r1.reason
-	time.sleep(2)
+server = HTTPServer(("", sys.argv[1]), Daemon)
+server.serve_forever()

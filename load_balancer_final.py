@@ -11,16 +11,6 @@ import threading
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
-
-# sumVote = 0
-
-
-
-# def handler(signum, frame):
-#     print "Forever is over!"
-#     if (sumVote>0):
-#         leader = 1
-
 def loadFile(filename):
     F = open(filename,"r")
     n = 0
@@ -76,11 +66,30 @@ def loadFile(filename):
     F.close
     return array_log
 
-def writeToFile(filename,addedtext):
+def addToFile(filename,addedtext):
     # Kalo mau nimpa semua, tinggal ganti a jadi r
     F = open(filename,"a")
     F.write(addedtext)
     F.close
+
+def writeToFile(filename,addedtext):
+    # Kalo mau nimpa semua, tinggal ganti a jadi r
+    F = open(filename,"r")
+    F.write(addedtext)
+    F.close
+
+def moveTempToActualLogs(src,dst):
+    S = open(src,"r")
+    # Fill commited logs file with temporary logs file
+    while 1:
+        line = S.readline()
+        if not line:
+            break
+        log = line,"\n"
+        addToFile(dst,log)
+    S.close
+    # Empty the temporary logs file
+    writeToFile(src,"")
 
 class WorkerHandler(BaseHTTPRequestHandler):
     # For Client Handling
@@ -94,56 +103,55 @@ class WorkerHandler(BaseHTTPRequestHandler):
         global getrequest
         try:
             args = self.path.split('/')
-            # Just To Make Sure, There's no way for access it directly
-            # Should make it better way, fix it later rau.
-            # Means it's sent by other nodes (maybe another better representation??)
-            if len(args) == 5:
-                getrequest = True
+            if len(args) == 7:
+                print "This is phase 3 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
-                address1 = json_obj["address1"]
-                port1 = json_obj["port1"]
-                cpu_load1 = json_obj["cpu_load1"]
-                address2 = json_obj["address2"]
-                port2 = json_obj["port2"]
-                cpu_load2 = json_obj["cpu_load2"]
-                term = json_obj["term"]
-
-                single_data_text = str(logcount)+" ____________________________________\n\n"
-                single_data_text += "Address1: "+address1+" \n"
-                single_data_text += "Port1: "+ port1+" \n"
-                single_data_text += "CPU Load1: "+ cpu_load1+" \n"
-                single_data_text += "Address2: "+address2+" \n"
-                single_data_text += "Port2: "+ port2+" \n"
-                single_data_text += "CPU Load2: "+ cpu_load2+" \n"
-                single_data_text += "Term: "+ term+" \n"
-                single_data_text += "\n______________________________________\n"
-                print single_data_text
-
-                # INI UNTUK SAVE KE FILE EXTERNAL
-                writeToFile("test.txt",single_data_text)
-
+                logs = int(json_obj["commit"])
+                if (commit == 1):
+                    moveTempToActualLogs("tempLog.txt","commitedLog.txt")
+                commitIndex = getLastLogIndex
                 self.send_response(200)
                 self.end_headers()
-                logcount+=1
-            # Means it's sent by daemon (maybe another better representation??)
-            elif len(args) == 4:
-                print "This is from daemon"
+                signal.alarm(timeout_interval)
+            elif len(args) == 6:
+                print "This is phase 2 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
-
-                machine_idx = json_obj["machine_idx"]
-                cpu_load = json_obj["cpu_load"]
-
-                print "Machine Idx: ",machine_idx
-                print "CPU_LOAD: ",cpu_load,"\n"
-
-                # Abis dapet data dari daemon diapain??
-                # Nunggu semua machine ngabarin apa gmn?
-                # Lanjutin rau, wieg
-                # WKWKWKWKWK
+                logs = json_obj["logs"]
+                # INI UNTUK SAVE KE FILE EXTERNAL
+                addToFile("logTemp.txt",logs)
+                self.wfile.write(logs.encode('utf-8'))
+                self.send_response(200)
+                self.end_headers()
+                signal.alarm(timeout_interval)
+            elif len(args) == 5:
+                print "This is phase 1 request"
+                content_len = int(self.headers.getheader('content-length', 0))
+                post_body = self.rfile.read(content_len)
+                json_obj = json.loads(post_body)
+                expectedTerm = int(json_obj["term"])
+                expectedIndex = int(json_obj["index"])
+                if (getTermFromIndex(logarray??,expectedIndex) == expectedTerm):
+                    self.wfile.write(expectedTerm,"/",expectedIndex,"/ok".encode('utf-8'))
+                else:
+                    self.wfile.write(expectedTerm,"/",expectedIndex,"no".encode('utf-8'))
+                self.send_response(200)
+                self.end_headers()
+                signal.alarm(timeout_interval)
+            elif len(args) == 4
+                print "This is phase 0 request"
+                content_len = int(self.headers.getheader('content-length', 0))
+                post_body = self.rfile.read(content_len)
+                json_obj = json.loads(post_body)
+                expectedNextIndex = int(json_obj["index"])
+                realNextIndex = getLastLogIndex(logarray??)+1
+                self.wfile.write((expectedNextIndex,"/",realNextIndex).encode('utf-8'))
+                self.send_response(200)
+                self.end_headers()
+                signal.alarm(timeout_interval)
             # Got election request
             elif len(args) == 3:
                 global term
@@ -167,6 +175,44 @@ class WorkerHandler(BaseHTTPRequestHandler):
                     self.wfile.write(resp.encode('utf-8'))
                 self.send_response(200)
                 self.end_headers()
+                signal.alarm(timeout_interval)
+            # Got request from client
+            elif len(args) == 2:
+                global term
+                # Ask to daemon
+                if (leader):
+                    currentIndex += 1
+                    indexLog = currentIndex," ____________________________________\n\n
+                    global workers
+                    choosenWorkers = ""
+                    minFreeMemory = 999999999999
+                    for i in range(0,len(workers))
+                        sent = False
+                        while (!sent):
+                            print "Sending daemon request to ",workers[i]
+                            conn = httplib.HTTPConnection(workers[i],":20000") # Address worker port 20000 is daemon
+                            data = {}
+                            headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+                            conn.request("GET", "/",json.dumps(data),headers)
+                            r1 = conn.getresponse()
+                            print r1.status, r1.reason
+                            if (r1.status == "200"):
+                                sent = True
+                                data = response.read()
+                                if (int(data) < min):
+                                    min = int(data)
+                                    choosenWorkers = workers[i]
+                                dataLog[i] = "Address",i": ",workers[i]"\nCPU Load1: ",data"\n"
+                            conn.close()
+                    termLog = "term: ",term"\n\n______________________________________"
+                    fullLog = indexLog,dataLog,termLog
+                    addToFile("logTemp.txt",fullLog)
+
+                    # Send free address to Client
+                    self.wfile.write(choosenWorkers.encode('utf-8'))
+                    self.send_response(200)
+                    self.end_headers()
+
 
         except Exception as ex:
             self.send_response(500)
@@ -180,16 +226,6 @@ class WorkerHandler(BaseHTTPRequestHandler):
 #     for x in log:
 #         print x
 #     print "______"
-
-# Initialize daftar node
-fileNode = open("node.txt","r")
-nodes = {}
-while 1:
-    line = fileNode.readline()
-    if not line:
-        break
-    nodes[i] = line
-fileNode.close
 
 # Function called when time out occured
 def timeOut(signum, frame):
@@ -213,30 +249,13 @@ def timeOut(signum, frame):
                     "index": currentIndex
         		}
         		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-        		conn.request("GET", "/leaderElection",json.dumps(data),headers)
+        		conn.request("GET", "/leader/election",json.dumps(data),headers)
         		r1 = conn.getresponse()
         		print r1.status, r1.reason
                 data = response.read()
                 readData = data.split('/')
                 if (readData[0] == term):
                     sumVote += readData[1]
-
-# INITIALIZERS
-# How to RUN!!
-# python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL
-if len(sys.argv) < 4:
-    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL"
-    sys.exit(1)
-
-leader = 0
-isVoted = 1
-logcount = 0
-getrequest = False
-nodenumber = int(sys.argv[1])
-# PORT = 13337
-PORT = int(sys.argv[2])
-timeout_interval = int(sys.argv[3])
-
 
 # FUNCTIONS FOR RETIEVE LOG
 # BUT YOU NEED TO LOADFILE FIRST
@@ -256,7 +275,7 @@ def getLastLogIndex(log_array):
 # Output dari fungsi ini tinggal dikirim aja, gausah diapa-apain lagi
 def getJsonFromLog(log):
     data = {}
-    # Index perlu ga? 
+    # Index perlu ga?
     # data["index"] = log[0]
     data["address1"] = log[1]
     data["port1"] = log[2]
@@ -273,6 +292,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
     print "Leader process"
     allMatchIndex = {0,0,0,0,0} # TBD from logs
     allNextIndex = {2,2,2,2,2} # TBD from logs then just fill the child node's with the same value as leader
+    allPhase = {0,0,0,0,0}
     while (1):
         if (leader):
             for x in range(0,len(nodes)):
@@ -288,7 +308,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                 		    "index": allNextIndex[x]
                 		}
                 		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/index/term",json.dumps(data),headers)
+                		conn.request("GET", "/samain/next/index",json.dumps(data),headers)
                 		r1 = conn.getresponse()
                 		print r1.status, r1.reason
                         if (r1.status != "200"):
@@ -315,7 +335,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                 		    "index": allMatchIndex[x]
                 		}
                 		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/index/term",json.dumps(data),headers)
+                		conn.request("GET", "/samain/match/index/term",json.dumps(data),headers)
                 		r1 = conn.getresponse()
                 		print r1.status, r1.reason
                         if (r1.status != "200"):
@@ -324,7 +344,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                         else:
                             steady = False
                             data = response.read()
-                            readData = data.split('/') # Expected value -> next index/index result
+                            readData = data.split('/') # Expected value -> term/match index/ok||no
                             # Check if no corrupted value
                             if (term = readData[0]) && (allMatchIndex[x] == readData[1]):
                                 if ("ok" == readData[2]):
@@ -342,7 +362,7 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                 		    "logs": log
                 		}
                 		headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                		conn.request("GET", "/index/term/log",json.dumps(data),headers)
+                		conn.request("GET", "/ngasih/match/index/term/log",json.dumps(data),headers)
                 		r1 = conn.getresponse()
                 		print r1.status, r1.reason
                         if (r1.status != "200"):
@@ -385,8 +405,32 @@ def leaderProcess(): # TBD make as an thread for each child nodes
                             allPhase[x] = 0
                             steady = False
                         conn.close()
-        time.sleep(timeout_interval)
 
+# INITIALIZERS
+# How to RUN!!
+# python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL
+if len(sys.argv) < 4:
+    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL"
+    sys.exit(1)
+
+leader = 0
+isVoted = 1
+logcount = 0
+getrequest = False
+nodenumber = int(sys.argv[1])
+# PORT = 13337
+PORT = int(sys.argv[2])
+timeout_interval = int(sys.argv[3])
+
+# Initialize daftar node
+fileNode = open("node.txt","r")
+nodes = {}
+while 1:
+    line = fileNode.readline()
+    if not line:
+        break
+    nodes[i] = line
+fileNode.close
 
 signal.signal(signal.SIGALRM, timeOut)
 signal.alarm(timeout_interval)
