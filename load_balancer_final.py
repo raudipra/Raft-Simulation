@@ -21,7 +21,7 @@ def loadFile(filename):
         if not line:
             break
         #Line 1 : Index
-        if (n % 12 == 0):
+        if (n % 11 == 0):
             log = []
             words = line.split(" ")
             log.append(words[0])
@@ -157,23 +157,23 @@ class LoadBalancer(BaseHTTPRequestHandler):
             elif len(args) == 3:
                 global term
                 print "This is election request for vote"
-                currentIndex = 1 # TBD from logs
+                currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
                 reqTerm = json_obj["term"]
                 reqIndex = json_obj["index"]
                 if (reqTerm > term):
-                    if (reqIndex > currentIndex):
-                        resp = reqTerm, "/1"
-                        self.wfile.write(resp.encode('utf-8'))
+                    if (reqIndex >= currentIndex):
+                        resp = "/"+str(reqTerm)+"/1/"
+                        self.wfile.write(resp)
                     else:
-                        resp = reqTerm, "/-1"
-                        self.wfile.write(resp.encode('utf-8'))
+                        resp = "/"+str(reqTerm)+"/-1/"
+                        self.wfile.write(resp)
                     term += reqTerm
                 else:
-                    resp = reqTerm, "/-1"
-                    self.wfile.write(resp.encode('utf-8'))
+                    resp = "/"+str(reqTerm)+"/-1/"
+                    self.wfile.write(resp)
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -198,7 +198,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                             print r1.status, r1.reason
                             if (r1.status == "200"):
                                 sent = True
-                                data = response.read()
+                                data = r1.read()
                                 if (int(data) < min):
                                     min = int(data)
                                     choosenWorkers = workers[i]
@@ -227,20 +227,24 @@ def timeOut(signum, frame):
     global leader
     global sumVote
     global term
+    global nodenumber
+    global nodes
+    print str(sumVote)+"ini sumvote \n"
     if (sumVote>0):
-        leader = true
+        print "Jadi leader"
+        leader = True
         sumVote = 0
-        allMatchIndex = {0,0,0,0,0}
-        nextIndex = getLastLogIndex(loadFile("commitedLog.txt")) + 1
-        allNextIndex = {nextIndex,nextIndex,nextIndex,nextIndex,nextIndex}
-        allPhase = {0,0,0,0,0}
+        allMatchIndex = [0,0,0,0,0]
+        nextIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) + 1
+        allNextIndex = [nextIndex,nextIndex,nextIndex,nextIndex,nextIndex]
+        allPhase = [0,0,0,0,0]
     else:
         term += 1
         # Send leader election request
         signal.alarm(timeout_interval)
         for x in range(0,len(nodes)):
             if (x != nodenumber):
-                currentIndex = 1 # TBD from logs
+                currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
                 print "Sending request to ",nodes[x]
                 conn = httplib.HTTPConnection(nodes[x])
                 data = {
@@ -250,11 +254,15 @@ def timeOut(signum, frame):
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
                 conn.request("GET", "/leader/election",json.dumps(data),headers)
                 r1 = conn.getresponse()
+                print r1.status, r1.reason
                 if (r1.status == 200):
-                    data = response.read()
+                    data = r1.read()
                     readData = data.split('/')
-                    if (readData[0] == term):
-                        sumVote += readData[1]
+                    print readData[1] + "Ini bagus \n"
+                    if (int(readData[1]) == term):
+                        print "masuk"
+                        sumVote += int(readData[2])
+                        print str(sumVote)+"ini sumvote \n"
                 else:
                     print r1.status, r1.reason
 
@@ -294,7 +302,9 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
     global allMatchIndex # TBD from logs
     global allNextIndex # TBD from logs then just fill the child node's with the same value as leader
     global allPhase
+    steady = False
     while (1):
+        currentIndex = int(getLastLogIndex(loadFile("commitedLog.txt"))) # TBD from logs
         if (leader):
             print "I am leader \n"
             # Getting index and term of child nodes
@@ -316,7 +326,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     steady = True
                 else:
                     steady = False
-                    data = response.read()
+                    data = r1.read()
                     readData = data.split('/') # Expected value -> next index/index result
                     # Check if no corrupted value
                     if (allNextIndex[childNodeNumber] == readData[0]):
@@ -343,7 +353,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     steady = True
                 else:
                     steady = False
-                    data = response.read()
+                    data = r1.read()
                     readData = data.split('/') # Expected value -> term/match index/ok||no
                     # Check if no corrupted value
                     if (term == readData[0]) and (allMatchIndex[childNodeNumber] == readData[1]):
@@ -370,7 +380,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     steady = True
                 else:
                     steady = False
-                    data = response.read()
+                    data = r1.read()
                     if (data == log):
                         allNextIndex[childNodeNumber] += 1
                         allMatchIndex[childNodeNumber] += 1
@@ -417,9 +427,9 @@ leader = False
 nodenumber = int(sys.argv[1])
 sumVote = 0
 term = 0
-allMatchIndex = {}
-allNextIndex = {}
-allPhase = {}
+allMatchIndex = []
+allNextIndex = []
+allPhase = []
 timeout_interval = int(sys.argv[2])
 
 # Initialize daftar node
