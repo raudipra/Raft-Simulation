@@ -6,6 +6,7 @@ import time
 import signal
 import json
 import threading
+import random
 
 #!/usr/bin/env python
 from BaseHTTPServer import HTTPServer
@@ -101,6 +102,19 @@ class LoadBalancer(BaseHTTPRequestHandler):
     # For Client Handling
     def do_POST(self):
         print "POST request"
+        log_array = loadFile("commitedLog"+str(nodenumber)+".txt")
+        log = getLog(log_array, int(getLastLogIndex(log_array)))
+        if (int(log[3]) >= int(log[6])):
+            address_max = log[1]
+            port_max = log[2]
+        elif (int(log[3]) < int(log[6])):
+            address_max = log[4]
+            port_max = log[5]
+        # Send address with max laod
+        self.wfile.write(str(address_max)+":"+str(port_max))
+        self.send_response(200)
+        self.end_headers()
+
 
     # For Each Node Communication
     def do_GET(self):
@@ -108,29 +122,32 @@ class LoadBalancer(BaseHTTPRequestHandler):
         global machine_info
         try:
             args = self.path.split('/')
-            if len(args) == 7: #length of param to identify kind of request
-                # Entering the phase 3,
-                print "This is phase 3 request"
-                content_len = int(self.headers.getheader('content-length', 0))
-                post_body = self.rfile.read(content_len)
-                json_obj = json.loads(post_body)
-                commit = int(json_obj["commit"])
-                if (commit == 1):
-                    print "Commit!!!"
-                    moveTempToActualLogs("logTemp"+str(nodenumber)+".txt","commitedLog"+str(nodenumber)+".txt")
-                # commitIndex = int(getLastLogIndex("commitedLog"+str(nodenumber)+".txt"))
-                self.send_response(200)
-                self.end_headers()
-                signal.alarm(timeout_interval)
-            elif len(args) == 6:
+            #if len(args) == 7:
+
+            #     print "This is phase 3 request"
+            #     content_len = int(self.headers.getheader('content-length', 0))
+            #     post_body = self.rfile.read(content_len)
+            #     json_obj = json.loads(post_body)
+            #     commit = int(json_obj["commit"])
+            #     if (commit == 1):
+            #         print "Commit!!!"
+            #         moveTempToActualLogs("logTemp"+str(nodenumber)+".txt","commitedLog"+str(nodenumber)+".txt")
+            #     # commitIndex = int(getLastLogIndex("commitedLog"+str(nodenumber)+".txt"))
+            #     self.send_response(200)
+            #     self.end_headers()
+            #     signal.alarm(timeout_interval)
+
+            if len(args) == 6: #length of param to identify kind of request
                 # Entering the phase 2
                 print "This is phase 2 request"
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
+                print "INI RESPON JSON"
+                print post_body
                 json_obj = json.loads(post_body)
                 # logs = json_obj["logs"]
-                if not json_obj: # If json_obj is empty
-                
+
+                if json_obj: # If not empty
                     address1 = json_obj["address1"]
                     port1 = json_obj["port1"]
                     cpu_load1 = json_obj["cpu_load1"]
@@ -143,10 +160,10 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt")))
                     single_data_text = str(currentIndex+1)+" ____________________________________\n\n"
                     single_data_text += "Address1: "+address1+" \n"
-                    single_data_text += "Port1: "+ port1+" \n"
+                    single_data_text += "Port1: "+ port1
                     single_data_text += "CPU Load1: "+ cpu_load1+" \n"
                     single_data_text += "Address2: "+address2+" \n"
-                    single_data_text += "Port2: "+ port2+" \n"
+                    single_data_text += "Port2: "+ port2
                     single_data_text += "CPU Load2: "+ cpu_load2+" \n"
                     single_data_text += "Term: "+ term+" \n"
                     single_data_text += "\n______________________________________\n"
@@ -155,10 +172,11 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     # Save into log file
                     addToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
 
+                # Send response
                 self.wfile.write("/"+post_body+"/")
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(timeout_interval)
+                signal.alarm(random.randint(12, 20))
             elif len(args) == 5:
                 # Entering the phase 1
                 print "This is phase 1 request"
@@ -176,7 +194,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(timeout_interval)
+                signal.alarm(random.randint(12, 20))
             elif len(args) == 4:
                 # Entering the phase 0 initial phase
                 print "This is phase 0 request"
@@ -191,12 +209,12 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(timeout_interval)
+                signal.alarm(random.randint(12, 20))
             # Got election request
             elif len(args) == 3:
                 # Conduct voting
                 print "This is election request for vote"
-                currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
+                currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt")))
                 content_len = int(self.headers.getheader('content-length', 0))
                 post_body = self.rfile.read(content_len)
                 json_obj = json.loads(post_body)
@@ -215,8 +233,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     self.wfile.write(resp)
                 self.send_response(200)
                 self.end_headers()
-                signal.alarm(timeout_interval)
-            # Get request from client
+                signal.alarm(random.randint(12, 20))
+            # Got request from client
+
             elif len(args) == 2:
                 # From daemon
                 print "This is from daemon"
@@ -296,9 +315,10 @@ def timeOut(signum, frame):
     else:
         term += 1
         # Send leader election request
-        signal.alarm(timeout_interval)
+        signal.alarm(random.randint(5, 9))
         for x in range(0,len(nodes)):
             if (sumVote >= 3):
+                signal.alarm(0)
                 break
             if (x != nodenumber):
                 currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) # TBD from logs
@@ -381,7 +401,7 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
             # Getting index and term of child nodes
             # Already up to date
             if (steady):
-                time.sleep(timeout_interval)
+                time.sleep(random.randint(5, 9))
             if (allPhase[childNodeNumber] == 0):
                 print "Sending next index to ",nodes[childNodeNumber]
                 conn = httplib.HTTPConnection(nodes[childNodeNumber])
@@ -416,9 +436,9 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                             allMatchIndex[childNodeNumber] = int(readData[2])-1 # Temporaly
                             print "DEBUG BANG UDI",allMatchIndex[childNodeNumber],currentIndex
                             if (allMatchIndex[childNodeNumber] == currentIndex):
-                                allPhase[childNodeNumber] = 3
+                                allPhase[childNodeNumber] = 0
                                 steady = True
-                                print "Masuk 3"
+                                print "Masuk 0"
                             elif (allMatchIndex[childNodeNumber] == -1):
                                 allPhase[childNodeNumber] = 2
                             else:
@@ -455,11 +475,13 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                 conn.close()
             # Match index found -> Sending logs
             elif (allPhase[childNodeNumber] == 2):
-                print "Sending necessary logs to ",nodes[childNodeNumber]
+                print "Sending necessary logs to "+str(nodes[childNodeNumber])
                 log_array = loadFile("commitedLog"+str(nodenumber)+".txt")
                 log = getLog(log_array,allMatchIndex[childNodeNumber]+1) # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
-                conn = httplib.HTTPConnection(nodes[childNodeNumber])
+                conn = httplib.HTTPConnection(str(nodes[childNodeNumber]))
                 data = getJsonFromLog(log)
+                print "INI JSON NYA"
+                print data
                 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
                 conn.request("GET", "/ngasih/match/index/term/log",data,headers)
                 r1 = conn.getresponse()
@@ -471,39 +493,15 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     steady = False
                     data = r1.read()
                     readData = data.split('/') # Expected value -> term/match index/ok||no
-                    if (readData[1] == log):
-                        allNextIndex[childNodeNumber] += 1
-                        allMatchIndex[childNodeNumber] += 1
+                    print "DEBUGGGGG!!!!"
+                    print readData,"---------------"
+                    print log,"---------------"
+                    print "Masuk Nulis"
+                    allNextIndex[childNodeNumber] += 1
+                    allMatchIndex[childNodeNumber] += 1
                     if (allMatchIndex[childNodeNumber] == currentIndex):
-                        allPhase[childNodeNumber] = 3
+                        allPhase[childNodeNumber] = 0
                         steady = True
-                conn.close()
-            elif (allPhase[childNodeNumber] == 3):
-                print "Just checking to ",nodes[childNodeNumber]
-                log = "log"  # TBD retrieve logs from allMatchIndex[childNodeNumber]+1 up to current index one by one
-                conn = httplib.HTTPConnection(nodes[childNodeNumber])
-                sumCommit = 1
-                for i in range(0,len(nodes)):
-                    if (i != nodenumber) and (allPhase[i] == 3):
-                        sumCommit += 1
-                if (sumCommit >= 3):
-                    # commitIndex = allMatchIndex[childNodeNumber]
-                    data = {
-                        "commit": 1
-                    }
-                else:
-                    data = {
-                        "commit": 0
-                    }
-                headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-                conn.request("GET", "/index/term/log/check/bang/neng",json.dumps(data),headers)
-                r1 = conn.getresponse()
-                print r1.status, r1.reason
-                if (int(r1.status) != 200):
-                    allPhase[childNodeNumber] = 0
-                if (allMatchIndex[childNodeNumber] != currentIndex):
-                    allPhase[childNodeNumber] = 0
-                    steady = False
                 conn.close()
             else:
                 print "Nah lho...",allPhase[childNodeNumber]
@@ -511,20 +509,21 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
 # INITIALIZERS
 # How to RUN!!
 # python load_balancer_zho.py NODENUMBER PORT TIMEOUTINTERVAL
-if len(sys.argv) < 3:
-    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER TIMEOUTINTERVAL"
+if len(sys.argv) < 2:
+    print "Should be >>\n\t python load_balancer_zho.py NODENUMBER"
     sys.exit(1)
 
 leader = False
 nodenumber = int(sys.argv[1])
 sumVote = 1
-term = 0
+logarray = loadFile("commitedLog"+str(nodenumber)+".txt")
+currentIndex = int(getLastLogIndex(logarray))
+term = int(getTermFromIndex(loadFile("commitedLog"+str(nodenumber)+".txt"),currentIndex))
 commit = 0
 allMatchIndex = []
 allNextIndex = []
 allPhase = []
 machine_info = []
-timeout_interval = int(sys.argv[2])
 
 # Initialize daftar node
 fileNode = open("node.txt","r")
@@ -549,7 +548,7 @@ fileMachine.close
 ipPort = nodes[nodenumber].split(":")
 port = int(ipPort[1])
 signal.signal(signal.SIGALRM, timeOut)
-signal.alarm(timeout_interval)
+signal.alarm(random.randint(12, 20))
 server = HTTPServer(("", port), LoadBalancer)
 print port
 th = {}
