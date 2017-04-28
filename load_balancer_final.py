@@ -122,7 +122,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 logs = json_obj["logs"]
                 # INI UNTUK SAVE KE FILE EXTERNAL
                 addToFile("logTemp.txt",logs)
-                self.wfile.write(logs.encode('utf-8'))
+                self.wfile.write(logs+"/")
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -135,9 +135,9 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 expectedIndex = int(json_obj["index"])
                 logarray = loadFile("commitedLog.txt")
                 if (getTermFromIndex(logarray,expectedIndex) == expectedTerm):
-                    self.wfile.write(expectedTerm,"/",expectedIndex,"/ok".encode('utf-8'))
+                    self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/ok/")
                 else:
-                    self.wfile.write(expectedTerm,"/",expectedIndex,"no".encode('utf-8'))
+                    self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/no/")
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -149,7 +149,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                 expectedNextIndex = int(json_obj["index"])
                 log_array = loadFile("commitedLog.txt")
                 realNextIndex = getLastLogIndex(log_array)+1
-                self.wfile.write((expectedNextIndex,"/",realNextIndex).encode('utf-8'))
+                self.wfile.write(("/"+expectedNextIndex+"/"+str(realNextIndex)+"/"))
                 self.send_response(200)
                 self.end_headers()
                 signal.alarm(timeout_interval)
@@ -329,15 +329,15 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     data = r1.read()
                     readData = data.split('/') # Expected value -> next index/index result
                     # Check if no corrupted value
-                    if (allNextIndex[childNodeNumber] == readData[0]):
-                        if (allNextIndex[childNodeNumber] == readData[1]):
+                    if (allNextIndex[childNodeNumber] == int(readData[1])):
+                        if (allNextIndex[childNodeNumber] == int(readData[1])):
                             allPhase[childNodeNumber] = 1
                             allMatchIndex[childNodeNumber] = readData[1]-1 # Temporaly
                         else:
                             allNextIndex[childNodeNumber] -= 1
                 conn.close()
             elif (allPhase == 1):
-                term = allMatchIndex[childNodeNumber] # TBD from logs based on allMatchIndex
+                term = getTermFromIndex(loadFile("commitedLog.txt"),allMatchIndex[childNodeNumber]) # TBD from logs based on allMatchIndex
                 print "Sending term and index to ",nodes[childNodeNumber]
                 conn = httplib.HTTPConnection(nodes[childNodeNumber])
                 data = {
@@ -356,8 +356,8 @@ def leaderProcess(childNodeNumber): # TBD make as an thread for each child nodes
                     data = r1.read()
                     readData = data.split('/') # Expected value -> term/match index/ok||no
                     # Check if no corrupted value
-                    if (term == readData[0]) and (allMatchIndex[childNodeNumber] == readData[1]):
-                        if ("ok" == readData[2]):
+                    if (term == readData[1]) and (allMatchIndex[childNodeNumber] == int(readData[2])):
+                        if ("ok" == readData[3]):
                             allPhase[childNodeNumber] = 2
                         else:
                             allNextIndex[childNodeNumber] -= 1
