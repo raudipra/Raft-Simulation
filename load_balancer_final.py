@@ -43,8 +43,6 @@ def loadFile(filename):
             elif (n % 11 == 4):
                 words = line.split(" ")
                 log.append(words[2])
-                # Push to array_log
-                array_log.append(log)
             #Line 6: Address
             elif (n % 11 == 5):
                 words = line.split(" ")
@@ -57,8 +55,6 @@ def loadFile(filename):
             elif (n % 11 == 7):
                 words = line.split(" ")
                 log.append(words[2])
-                # Push to array_log
-                array_log.append(log)
             #Line 9: Term
             elif (n % 11 == 8):
                 words = line.split(" ")
@@ -161,7 +157,7 @@ class LoadBalancer(BaseHTTPRequestHandler):
                     # Format for the log file
                     currentIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt")))
                     single_data_text = str(currentIndex+1)+" ____________________________________\n\n"
-                    single_data_text += "Address1: "+address1
+                    single_data_text += "Phase2Address1: "+address1
                     single_data_text += "Port1: "+ port1
                     single_data_text += "CPU Load1: "+ cpu_load1
                     single_data_text += "Address2: "+address2
@@ -191,8 +187,46 @@ class LoadBalancer(BaseHTTPRequestHandler):
 
                 if (int(getTermFromIndex(logarray,expectedIndex)) == expectedTerm): # Match log left behind
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/ok/")
+                    # Buffer yang Match
+                    # Replace file with Same Log
+                    init_logs = []
+                    for i in range(0,expectedIndex+1):
+                        init_logs.append(logarray[i])
+                        print "Debug LOGG ",i
+                        for l in logarray[i]:
+                            print l
+
+                    # Clear Logfile
+                    single_data_text = ""
+                    writeToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
+                    for log in init_logs:
+                        idx = log[0]
+                        address1 = log[1]
+                        port1 = log[2]
+                        cpu_load1 = log[3]
+                        address2 = log[4]
+                        port2 = log[5]
+                        cpu_load2 = log[6]
+                        term = log[7]
+
+                        single_data_text += str(idx)+" ____________________________________\n\n"
+                        single_data_text += "ArizhoAddress1: "+address1
+                        single_data_text += "Port1: "+ port1
+                        single_data_text += "CPU Load1: "+ cpu_load1
+                        single_data_text += "Address2: "+address2
+                        single_data_text += "Port2: "+ port2
+                        single_data_text += "CPU Load2: "+ cpu_load2
+                        single_data_text += "Term: "+ term
+                        single_data_text += "\n______________________________________\n"
+
+                    # Save into log file
+                    addToFile("commitedLog"+str(nodenumber)+".txt",single_data_text)
+
+
+
                 else:
                     self.wfile.write("/"+str(expectedTerm)+"/"+str(expectedIndex)+"/no/")
+
 
                 self.send_response(200)
                 self.end_headers()
@@ -314,7 +348,7 @@ def timeOut(signum, frame):
         allMatchIndex = [0,0,0,0,0]
         nextIndex = int(getLastLogIndex(loadFile("commitedLog"+str(nodenumber)+".txt"))) + 1
         allNextIndex = [nextIndex,nextIndex,nextIndex,nextIndex,nextIndex]
-        allPhase = [0,0,0,0,0]
+        allPhase = [1,1,1,1,1]
     else:
         term += 1
         # Send leader election request
@@ -447,7 +481,7 @@ def leaderProcess(childNodeNumber): # Make as an thread for each child nodes
                 r1 = conn.getresponse()
                 print r1.status, r1.reason
                 if (int(r1.status) != 200):
-                    allPhase[childNodeNumber] = 0
+                    allPhase[childNodeNumber] = 1
                     steady = True
                 else:
                     steady = False
@@ -456,7 +490,11 @@ def leaderProcess(childNodeNumber): # Make as an thread for each child nodes
                     # Check if no corrupted value
                     if (int(term) == int(readData[1])) and (allMatchIndex[childNodeNumber] == int(readData[2])):
                         if ("ok" == readData[3]):
-                            allPhase[childNodeNumber] = 2
+                            if (allMatchIndex[childNodeNumber] == currentIndex):
+                                allPhase[childNodeNumber] = 1
+                                steady = True
+                            else:
+                                allPhase[childNodeNumber] = 2
                         else:
                             allNextIndex[childNodeNumber] -= 1
                             allMatchIndex[childNodeNumber] -= 1
@@ -473,8 +511,8 @@ def leaderProcess(childNodeNumber): # Make as an thread for each child nodes
                 r1 = conn.getresponse()
                 print r1.status, r1.reason
                 if (int(r1.status) != 200):
-                    allPhase[childNodeNumber] = 0
-                    steady = True
+                    allPhase[childNodeNumber] = 1
+                    # steady = True
                 else:
                     steady = False
                     data = r1.read()
@@ -482,7 +520,7 @@ def leaderProcess(childNodeNumber): # Make as an thread for each child nodes
                     allNextIndex[childNodeNumber] += 1
                     allMatchIndex[childNodeNumber] += 1
                     if (allMatchIndex[childNodeNumber] == currentIndex):
-                        allPhase[childNodeNumber] = 0
+                        allPhase[childNodeNumber] = 1
                         steady = True
                 conn.close()
             else:

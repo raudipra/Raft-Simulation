@@ -5,7 +5,7 @@ import sys
 import time
 
 # Port ganti jadi yang bener
-registered_ports=[10000,10002,10007,10004,10005]
+registered_ports=[10001,10002,10007,10004,10005]
 
 if len(sys.argv) < 2:
 	print "Should be :"

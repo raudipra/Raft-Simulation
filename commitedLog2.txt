@@ -1,8 +1,8 @@
 0 ____________________________________
 
-Address1: localhost
+ArizhoAddress1: localhost
 Port1: 10011
-CPU Load1: 31809536
+CPU Load1: 31809535
 Address2: localhost
 Port2: 10012
 CPU Load2: 40136704
@@ -11,23 +11,45 @@ Term: 1
 ______________________________________
 1 ____________________________________
 
-Address1: localhost
+ArizhoAddress1: localhost
 Port1: 10011
 CPU Load1: 31809536
 Address2: localhost
 Port2: 10012
 CPU Load2: 40136704
-Term: 2
+Term: 1
 
 ______________________________________
 2 ____________________________________
 
-Address1: localhost
+ArizhoAddress1: localhost
 Port1: 10011
 CPU Load1: 31809536
 Address2: localhost
 Port2: 10012
 CPU Load2: 40136704
-Term: 2 
+Term: 3
+
+______________________________________
+3 ____________________________________
+
+ArizhoAddress1: localhost
+Port1: 10011
+CPU Load1: 31809536
+Address2: localhost
+Port2: 10012
+CPU Load2: 40136704
+Term: 3
+
+______________________________________
+4 ____________________________________
+
+ArizhoAddress1: localhost
+Port1: 10011
+CPU Load1: 31809536
+Address2: localhost
+Port2: 10012
+CPU Load2: 40136704
+Term: 3
 
 ______________________________________
