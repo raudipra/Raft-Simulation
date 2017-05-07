@@ -18,7 +18,7 @@ freeMemory = p.free
 
 while 1 :
 	for port in registered_ports:
-		address = "localhost:"+str(port)
+		address = "172.20.10.2:"+str(port)
 		print "Sending machine detail to ",address
 		conn = httplib.HTTPConnection(address)
 		data = {
